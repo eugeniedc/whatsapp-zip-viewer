@@ -17,8 +17,8 @@ A local viewer for WhatsApp chat exports (ZIP files).
 
 1. **Clone the repo**
    ```bash
-   git clone https://github.com/eugeniedc/test-repo.git
-   cd test-repo
+   git clone https://github.com/eugeniedc/whatsapp-zip-viewer.git
+   cd whatsapp-zip-viewer
    ```
 
 2. **Install dependencies**
@@ -26,21 +26,40 @@ A local viewer for WhatsApp chat exports (ZIP files).
    npm install
    ```
 
-3. **Run the app**
+3. **Run the development server**
    ```bash
    npm run dev
-   # or
-   npm start
+   ```
+   The app will be available at `http://localhost:5173/`
+
+4. **Build for production**
+   ```bash
+   npm run build
    ```
 
-4. **Usage**
-   - Open the app in your browser.
-   - Upload your WhatsApp export `.zip` file.
-   - Search/filter messages instantly and privately.
+5. **Preview production build**
+   ```bash
+   npm run preview
+   ```
+
+## Usage
+
+- Open the app in your browser.
+- Upload your WhatsApp export `.zip` file.
+- Search/filter messages instantly and privately.
 
 ## Tech Stack
 
 - React & TypeScript
-- [shadcn/ui](https://ui.shadcn.com/) for UI components
+- [Vite](https://vitejs.dev/) for fast development and building
 - [jszip](https://www.npmjs.com/package/jszip) for ZIP extraction
+- Custom UI components for a clean interface
+
+## Development
+
+This project uses Vite for fast development and hot module replacement. The development server provides instant feedback when making changes to the code.
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production  
+- `npm run preview` - Preview production build locally
 

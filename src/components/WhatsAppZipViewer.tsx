@@ -10,7 +10,7 @@ import {
   CardTitle,
   CardDescription,
   Label,
-} from "@/components/ui"; // adjust import paths according to your setup
+} from "@/components/ui/index";
 
 interface WhatsAppMessage {
   datetime: Date;
