@@ -43,37 +43,54 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  
+  /* Pastel color palette for chat interface */
+  --chat-bg-gradient-from: oklch(0.98 0.02 270); /* Very light lavender */
+  --chat-bg-gradient-to: oklch(0.96 0.03 210);   /* Very light blue */
+  
+  --background: oklch(0.98 0.02 270);
+  --foreground: oklch(0.25 0.05 260);
+  --card: oklch(0.99 0.01 270);
+  --card-foreground: oklch(0.25 0.05 260);
+  --popover: oklch(0.99 0.01 270);
+  --popover-foreground: oklch(0.25 0.05 260);
+  
+  /* Soft pastel primary colors */
+  --primary: oklch(0.75 0.15 280); /* Soft purple */
+  --primary-foreground: oklch(0.98 0.01 280);
+  --secondary: oklch(0.92 0.05 200); /* Soft blue */
+  --secondary-foreground: oklch(0.25 0.05 260);
+  
+  /* Muted pastels */
+  --muted: oklch(0.95 0.02 250);
+  --muted-foreground: oklch(0.55 0.05 260);
+  --accent: oklch(0.88 0.08 320); /* Soft pink */
+  --accent-foreground: oklch(0.25 0.05 260);
+  
+  /* Soft destructive */
+  --destructive: oklch(0.75 0.15 20); /* Soft coral */
+  
+  /* Soft borders and inputs */
+  --border: oklch(0.90 0.03 260);
+  --input: oklch(0.96 0.02 260);
+  --ring: oklch(0.75 0.15 280);
+  
+  /* Colorful pastel chart colors */
+  --chart-1: oklch(0.80 0.12 300); /* Soft purple */
+  --chart-2: oklch(0.80 0.12 180); /* Soft cyan */
+  --chart-3: oklch(0.80 0.12 60);  /* Soft yellow */
+  --chart-4: oklch(0.80 0.12 340); /* Soft pink */
+  --chart-5: oklch(0.80 0.12 120); /* Soft green */
+  
+  /* Sidebar pastels */
+  --sidebar: oklch(0.96 0.03 280);
+  --sidebar-foreground: oklch(0.25 0.05 260);
+  --sidebar-primary: oklch(0.75 0.15 280);
+  --sidebar-primary-foreground: oklch(0.98 0.01 280);
+  --sidebar-accent: oklch(0.88 0.08 320);
+  --sidebar-accent-foreground: oklch(0.25 0.05 260);
+  --sidebar-border: oklch(0.90 0.03 260);
+  --sidebar-ring: oklch(0.75 0.15 280);
 }
 
 .dark {
@@ -116,5 +133,47 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Custom chat interface styles */
+@layer utilities {
+  .chat-gradient-bg {
+    background: linear-gradient(135deg, var(--chat-bg-gradient-from) 0%, var(--chat-bg-gradient-to) 100%);
+  }
+  
+  .message-bubble-own {
+    background: linear-gradient(135deg, oklch(0.75 0.15 280) 0%, oklch(0.72 0.18 300) 100%);
+    color: white;
+    border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+    box-shadow: 0 2px 8px oklch(0.75 0.15 280 / 0.3);
+  }
+  
+  .message-bubble-other {
+    background: linear-gradient(135deg, oklch(0.98 0.02 250) 0%, oklch(0.95 0.05 280) 100%);
+    color: oklch(0.25 0.05 260);
+    border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
+    box-shadow: 0 2px 8px oklch(0.75 0.15 280 / 0.15);
+    border: 1px solid oklch(0.90 0.05 260);
+  }
+  
+  .avatar-pastel-1 { background: linear-gradient(135deg, oklch(0.85 0.12 40) 0%, oklch(0.80 0.15 60) 100%); }
+  .avatar-pastel-2 { background: linear-gradient(135deg, oklch(0.85 0.12 120) 0%, oklch(0.80 0.15 140) 100%); }
+  .avatar-pastel-3 { background: linear-gradient(135deg, oklch(0.85 0.12 200) 0%, oklch(0.80 0.15 220) 100%); }
+  .avatar-pastel-4 { background: linear-gradient(135deg, oklch(0.85 0.12 280) 0%, oklch(0.80 0.15 300) 100%); }
+  .avatar-pastel-5 { background: linear-gradient(135deg, oklch(0.85 0.12 320) 0%, oklch(0.80 0.15 340) 100%); }
+  
+  .card-gradient {
+    background: linear-gradient(135deg, oklch(0.99 0.01 270) 0%, oklch(0.97 0.03 290) 100%);
+    border: 1px solid oklch(0.90 0.05 280);
+    box-shadow: 0 4px 20px oklch(0.75 0.15 280 / 0.1);
+  }
+  
+  .chat-container {
+    background: linear-gradient(to bottom, 
+      oklch(0.96 0.03 260) 0%, 
+      oklch(0.94 0.05 280) 50%,
+      oklch(0.96 0.03 300) 100%
+    );
   }
 }
