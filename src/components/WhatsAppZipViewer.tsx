@@ -15,20 +15,63 @@ import { cn } from "@/lib/utils";
 import ChatMessage, { WhatsAppMessage } from "./ChatMessage";
 
 function parseWhatsAppText(text: string): WhatsAppMessage[] {
-  const regex =
-    /^(\d{1,2}\/\d{1,2}\/\d{2,4}), (\d{1,2}:\d{2}) - ([^:]+): (.+)$/gm;
+  // 支援兩種格式：
+  // 1. [dd/mm/yyyy hh:mm:ss] sender: message
+  // 2. dd/mm/yyyy, hh:mm - sender: message
+  const regexBracket = /^\[(\d{1,2}\/\d{1,2}\/\d{2,4}) (\d{1,2}:\d{2}:\d{2})\] ([^:]+): (.+)$/gm;
+  const regexDash = /^(\d{1,2}\/\d{1,2}\/\d{2,4}), (\d{1,2}:\d{2}) - ([^:]+): (.+)$/gm;
   const messages: WhatsAppMessage[] = [];
-  let match;
-  
-  while ((match = regex.exec(text)) !== null) {
-    const [_, date, time, sender, message] = match;
+  // 先解析中括號格式
+  let matchBracket;
+  while ((matchBracket = regexBracket.exec(text)) !== null) {
+    const [_, date, time, sender, message] = matchBracket;
+    // date: dd/mm/yyyy, time: hh:mm:ss
+    const [d, m, yRaw] = date.split('/');
+    let y = yRaw;
+    if (y.length === 2) {
+      y = Number(y) < 50 ? '20' + y : '19' + y;
+    }
+    // 解析時間
+    const [hh, mm, ss] = time.split(':');
+    const dt = new Date(Date.UTC(
+      Number(y),
+      Number(m) - 1,
+      Number(d),
+      Number(hh),
+      Number(mm),
+      Number(ss)
+    ));
     messages.push({
-      datetime: new Date(`${date} ${time}`),
+      datetime: dt,
       sender,
       message,
     });
   }
-  
+  // 再解析 dash 格式
+  let matchDash;
+  while ((matchDash = regexDash.exec(text)) !== null) {
+    const [_, date, time, sender, message] = matchDash;
+    // date: dd/mm/yyyy, time: hh:mm
+    const [d, m, yRaw] = date.split('/');
+    let y = yRaw;
+    if (y.length === 2) {
+      y = Number(y) < 50 ? '20' + y : '19' + y;
+    }
+    const [hh, mm] = time.split(':');
+    const dt = new Date(Date.UTC(
+      Number(y),
+      Number(m) - 1,
+      Number(d),
+      Number(hh),
+      Number(mm),
+      0
+    ));
+    messages.push({
+      datetime: dt,
+      sender,
+      message,
+    });
+  }
   return messages;
 }
 
@@ -53,39 +96,48 @@ function getMediaType(filename: string): 'image' | 'sticker' | 'document' | 'aud
 
 // Enhanced function to map media files to messages
 function mapMediaToMessages(messages: WhatsAppMessage[], mediaFiles: Map<string, string>): WhatsAppMessage[] {
+  // 建立一個 filename -> key 的對照表（key 為 mediaFiles 的原始 key，filename 為不含路徑的檔名）
+  const filenameMap = new Map<string, string>();
+  for (const key of mediaFiles.keys()) {
+    filenameMap.set(key.split('/').pop() || key, key);
+  }
   return messages.map(message => {
-    // Look for media references in the message text - handle both direct filenames and "file attached" format
-    const mediaMatches = message.message.match(/(IMG-\d+-WA\d+\.\w+|VID-\d+-WA\d+\.\w+|AUD-\d+-WA\d+\.\w+|STK-\d+-WA\d+\.\w+|[\w-]+\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|mp3|wav|ogg|pdf|doc))/gi);
-    
-    if (mediaMatches) {
+    // 支援 <添付ファイル: filename> 格式
+    const mediaMatches = [];
+    // 1. 先抓 <添付ファイル: ...>
+    const attachTagRegex = /<添付ファイル: ([^>]+)>/gi;
+    let tagMatch;
+    while ((tagMatch = attachTagRegex.exec(message.message)) !== null) {
+      mediaMatches.push(tagMatch[1]);
+    }
+    // 2. 再抓原本的檔名格式
+    const fileNameRegex = /(IMG-\d+-WA\d+\.\w+|VID-\d+-WA\d+\.\w+|AUD-\d+-WA\d+\.\w+|STK-\d+-WA\d+\.\w+|[\w-]+\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|mp3|wav|ogg|pdf|doc))/gi;
+    let fileMatch;
+    while ((fileMatch = fileNameRegex.exec(message.message)) !== null) {
+      mediaMatches.push(fileMatch[0]);
+    }
+    if (mediaMatches.length > 0) {
       const attachedMedia: WhatsAppMessage['mediaFiles'] = [];
-      
+      const seen = new Set<string>();
       mediaMatches.forEach(mediaRef => {
         // Clean the filename - remove "(file attached)" part if present
-        const cleanRef = mediaRef.replace(/\s*\(file attached\).*$/i, '');
-        
-        // Try different possible filename variations
-        const possibleNames = [
-          cleanRef,
-          cleanRef.toLowerCase(),
-          cleanRef.toUpperCase(),
-        ];
-        
-        for (const name of possibleNames) {
-          if (mediaFiles.has(name)) {
-            attachedMedia.push({
-              filename: name,
-              type: getMediaType(name),
-              data: mediaFiles.get(name)!,
-            });
-            break;
-          }
+        const cleanRef = mediaRef.replace(/\s*\(file attached\).*/i, '');
+        // 直接用 filenameMap 比對
+        const justFilename = cleanRef.split('/').pop() || cleanRef;
+        if (seen.has(justFilename)) return;
+        seen.add(justFilename);
+        const key = filenameMap.get(justFilename);
+        if (key && mediaFiles.has(key)) {
+          attachedMedia.push({
+            filename: justFilename,
+            type: getMediaType(justFilename),
+            data: mediaFiles.get(key)!,
+          });
         }
       });
-      
       if (attachedMedia.length > 0) {
-        // If we found media, we might want to clean the message text
-        const cleanMessage = message.message.replace(/\s*\(file attached\)/gi, '').trim();
+        // 清理訊息內容
+        let cleanMessage = message.message.replace(attachTagRegex, '').replace(/\s*\(file attached\)/gi, '').trim();
         return {
           ...message,
           message: cleanMessage,
@@ -93,7 +145,6 @@ function mapMediaToMessages(messages: WhatsAppMessage[], mediaFiles: Map<string,
         };
       }
     }
-    
     return message;
   });
 }
@@ -126,74 +177,97 @@ const DatePicker: React.FC<{
 };
 
 const WhatsAppZipViewer: React.FC = () => {
+  const [visibleCount, setVisibleCount] = useState<number>(100);
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
+  const [ownerName, setOwnerName] = useState<string>("");
   const [search, setSearch] = useState<string>("");
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [filtered, setFiltered] = useState<WhatsAppMessage[]>([]);
   const [showSearch, setShowSearch] = useState<boolean>(false);
   const [isUploadMinimized, setIsUploadMinimized] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [isProcessingMessages, setIsProcessingMessages] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle ZIP upload
   const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    const zip = await JSZip.loadAsync(file);
-    let allMessages: WhatsAppMessage[] = [];
-    const mediaFiles = new Map<string, string>();
-    
-    // First pass: extract media files
-    for (const [filename, zipEntry] of Object.entries(zip.files)) {
-      if (!zipEntry.dir && !filename.endsWith('.txt') && !filename.endsWith('.py')) {
-        // Check if it's a media file
-        const extension = filename.split('.').pop()?.toLowerCase();
-        const isMediaFile = [
-          'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tgs',
-          'mp4', 'mov', 'avi', 'webm', '3gp',
-          'mp3', 'wav', 'ogg', 'm4a', 'aac',
-          'pdf', 'doc', 'docx'
-        ].includes(extension || '');
-        
-        if (isMediaFile) {
-          try {
-            const arrayBuffer = await zipEntry.async("arraybuffer");
-            const blob = new Blob([arrayBuffer]);
-            const dataUrl = await new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result as string);
-              reader.readAsDataURL(blob);
-            });
-            
-            // Store with just the filename (without path)
-            const justFilename = filename.split('/').pop() || filename;
-            mediaFiles.set(justFilename, dataUrl);
-          } catch (error) {
-            console.warn(`Could not process media file ${filename}:`, error);
+    setIsUploading(true);
+    setUploadProgress(0);
+    setIsProcessingMessages(false);
+  let allMessages: WhatsAppMessage[] = [];
+  const mediaFiles = new Map<string, string>();
+  let owner = "";
+    try {
+      const zip = await JSZip.loadAsync(file, {});
+      const fileEntries = Object.entries(zip.files);
+      let processed = 0;
+      const total = fileEntries.length;
+      // 嘗試取得 ownerName（只用 _chat.txt 第一則 sender）s
+      // First pass: extract media files
+      for (const [filename, zipEntry] of fileEntries) {
+        if (!zipEntry.dir && !filename.endsWith('.txt') && !filename.endsWith('.py')) {
+          const extension = filename.split('.').pop()?.toLowerCase();
+          const isMediaFile = [
+            'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tgs',
+            'mp4', 'mov', 'avi', 'webm', '3gp',
+            'mp3', 'wav', 'ogg', 'm4a', 'aac',
+            'pdf', 'doc', 'docx'
+          ].includes(extension || '');
+          if (isMediaFile) {
+            try {
+              const arrayBuffer = await zipEntry.async("arraybuffer");
+              const blob = new Blob([arrayBuffer]);
+              const dataUrl = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+              });
+              const justFilename = filename.split('/').pop() || filename;
+              mediaFiles.set(justFilename, dataUrl);
+            } catch (error) {
+              console.warn(`Could not process media file ${filename}:`, error);
+            }
           }
         }
+        processed++;
+        setUploadProgress(Math.round((processed / total) * 80)); // 80% for media
       }
-    }
-    
-    // Second pass: extract text messages
-    for (const filename of Object.keys(zip.files)) {
-      if (filename.endsWith(".txt")) {
-        const text = await zip.files[filename].async("string");
-        const parsedMessages = parseWhatsAppText(text);
-        allMessages = allMessages.concat(parsedMessages);
+      // 第二階段：訊息處理 loading
+      setIsProcessingMessages(true);
+      // Second pass: only extract _chat.txt messages
+      for (const filename of Object.keys(zip.files)) {
+        if (filename === "_chat.txt") {
+          const text = await zip.files[filename].async("string");
+          const parsedMessages = parseWhatsAppText(text);
+          allMessages = allMessages.concat(parsedMessages);
+          // 如果 owner 尚未取得，則用第一則訊息 sender
+          if (!owner && parsedMessages.length > 0) {
+            owner = parsedMessages[0].sender;
+          }
+        }
+        processed++;
+        setUploadProgress(Math.round((processed / total) * 95)); // 95% for text
       }
-    }
-    
-    // Third pass: map media files to messages
-    const messagesWithMedia = mapMediaToMessages(allMessages, mediaFiles);
-    
-    setMessages(messagesWithMedia);
-    setFiltered(messagesWithMedia);
-    
-    // Minimize upload section after successful upload
-    if (messagesWithMedia.length > 0) {
-      setIsUploadMinimized(true);
+      // Third pass: map media files to messages
+      const messagesWithMedia = mapMediaToMessages(allMessages, mediaFiles);
+  setMessages(messagesWithMedia);
+  setFiltered(messagesWithMedia);
+  setOwnerName(owner);
+      setUploadProgress(100);
+      setTimeout(() => {
+        setIsUploading(false);
+        setIsProcessingMessages(false);
+        setIsUploadMinimized(true);
+      }, 500);
+    } catch (err) {
+      setIsUploading(false);
+      setIsProcessingMessages(false);
+      setUploadProgress(0);
+      alert("upload fail");
     }
   };
 
@@ -214,7 +288,8 @@ const WhatsAppZipViewer: React.FC = () => {
       filteredMsgs = filteredMsgs.filter(
         (m) => m.datetime <= endDate
       );
-    setFiltered(filteredMsgs);
+  setFiltered(filteredMsgs);
+  setVisibleCount(100); // 每次搜尋或篩選都重設顯示數量
   }, [search, startDate, endDate, messages]);
 
   return (
@@ -235,8 +310,8 @@ const WhatsAppZipViewer: React.FC = () => {
           </p>
         </div>
 
-        {/* Upload Section */}
-        {!isUploadMinimized ? (
+  {/* Upload Section */}
+  {!isUploadMinimized ? (
           <Card className="mb-8 border-0 shadow-2xl bg-white/95 backdrop-blur-sm">
             <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-t-xl">
               <CardTitle className="flex items-center gap-3 text-xl">
@@ -283,6 +358,19 @@ const WhatsAppZipViewer: React.FC = () => {
                 <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold px-8 py-3 rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105">
                   {messages.length > 0 ? "Load Different File" : "Select File"}
                 </Button>
+                {isUploading && (
+                  <div className="mt-8">
+                    <div className="w-full bg-gray-200 rounded-full h-6">
+                      <div
+                        className="bg-gradient-to-r from-emerald-500 to-teal-500 h-6 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                    <div className="text-center text-emerald-700 font-semibold mt-2">
+                      {uploadProgress < 100 ? `uploading... ${uploadProgress}%` : "Done!"}
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -434,7 +522,16 @@ const WhatsAppZipViewer: React.FC = () => {
         )}
 
         {/* Messages Section */}
-        {messages.length > 0 && (
+        {isProcessingMessages && (
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="inline-flex p-6 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full shadow-lg mb-6 animate-pulse">
+              <MessageCircle className="h-16 w-16 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-700 mb-3">Processing messages...</h3>
+            <p className="text-gray-500 text-lg">Please wait while your chat is being processed.</p>
+          </div>
+        )}
+        {!isProcessingMessages && messages.length > 0 && (
           <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-sm overflow-hidden">
             <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-6">
               <CardTitle className="flex items-center gap-3 text-xl">
@@ -459,12 +556,10 @@ const WhatsAppZipViewer: React.FC = () => {
                   </div>
                 ) : (
                   <div className="p-6">
-                    {filtered.map((message, i) => {
-                      // Create a simple hash to determine message alignment and colors
-                      const senderHash = message.sender.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-                      const isOwnMessage = senderHash % 3 === 0;
-                      const senderColorIndex = senderHash % 8;
-                      
+                    {filtered.slice(0, visibleCount).map((message, i) => {
+                      // 用 ownerName 判斷 isOwnMessage
+                      const isOwnMessage = message.sender === ownerName;
+                      const senderColorIndex = message.sender ? (message.sender.charCodeAt(0) % 8) : 0;
                       return (
                         <ChatMessage
                           key={i}
@@ -474,6 +569,17 @@ const WhatsAppZipViewer: React.FC = () => {
                         />
                       );
                     })}
+                    {visibleCount < filtered.length && (
+                      <div className="flex justify-center mt-6">
+                        <Button
+                          variant="outline"
+                          onClick={() => setVisibleCount(v => v + 100)}
+                          className="border-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50 font-semibold px-8 py-3 rounded-xl shadow-lg"
+                        >
+                          載入更多訊息
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

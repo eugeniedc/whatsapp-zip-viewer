@@ -41,7 +41,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     <div
       className={cn(
         "flex items-end gap-3 group mb-4",
-        isOwnMessage ? "justify-end flex-row-reverse" : "justify-start"
+        isOwnMessage ? "justify-end" : "justify-start"
       )}
     >
       {/* Avatar */}
@@ -57,14 +57,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           </div>
         </div>
       )}
-      
       {/* Message Bubble */}
       <div className={cn(
         "max-w-[75%] transition-all duration-200 group-hover:scale-[1.02]",
-        isOwnMessage ? "items-end" : "items-start"
+        isOwnMessage ? "ml-auto items-end" : "items-start"
       )}>
         {/* Sender name for incoming messages */}
-        {!isOwnMessage && (
           <div className="mb-2 ml-4">
             <span className={cn(
               "text-sm font-bold bg-gradient-to-r bg-clip-text text-transparent",
@@ -73,8 +71,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               {message.sender}
             </span>
           </div>
-        )}
-        
         {/* Message content */}
         <div className={cn(
           "relative px-6 py-4 rounded-2xl shadow-xl bg-gradient-to-r text-white backdrop-blur-sm border border-white/20",
@@ -147,16 +143,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             "text-white/80"
           )}>
             <span>
-              {message.datetime.toLocaleString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
+              {message.datetime instanceof Date && !isNaN(message.datetime.getTime())
+                ? `${message.datetime.getFullYear()}/${(message.datetime.getMonth()+1).toString().padStart(2,'0')}/${message.datetime.getDate().toString().padStart(2,'0')} ${message.datetime.getHours().toString().padStart(2,'0')}:${message.datetime.getMinutes().toString().padStart(2,'0')}`
+                : 'Invalid Date'}
             </span>
-            {isOwnMessage && (
-              <span className="ml-1 text-green-200">✓✓</span>
-            )}
           </div>
         </div>
       </div>
@@ -165,7 +155,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
       {isOwnMessage && (
         <div className="flex-shrink-0 mb-2">
           <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
-            <span className="text-white font-bold text-sm">Me</span>
+            <span className="text-white font-bold text-sm">  {message.sender.charAt(0).toUpperCase()}</span>
           </div>
         </div>
       )}
