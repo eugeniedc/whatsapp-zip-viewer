@@ -1,117 +1,88 @@
-/* Basic CSS reset and utility classes */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 142 73% 48%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 142 73% 48%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 142 73% 48%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 142 73% 48%;
+  }
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  * {
+    @apply border-gray-200;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 
-/* Utility classes similar to Tailwind */
-.min-h-screen {
-  min-height: 100vh;
+/* WhatsApp-specific styles */
+.whatsapp-bg {
+  background: linear-gradient(to bottom, #128C7E 0%, #25D366 100%);
 }
 
-.bg-gray-100 {
-  background-color: #f3f4f6;
+.message-bubble {
+  position: relative;
 }
 
-.py-8 {
-  padding-top: 2rem;
-  padding-bottom: 2rem;
+.message-bubble:after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 0;
+  height: 0;
 }
 
-.max-w-xl {
-  max-width: 36rem;
+.message-bubble.sent:after {
+  right: -8px;
+  border-left: 8px solid #DCF8C6;
+  border-bottom: 8px solid transparent;
 }
 
-.mx-auto {
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.mt-10 {
-  margin-top: 2.5rem;
-}
-
-.space-y-4 > * + * {
-  margin-top: 1rem;
-}
-
-.space-y-3 > * + * {
-  margin-top: 0.75rem;
-}
-
-.mb-2 {
-  margin-bottom: 0.5rem;
-}
-
-.mt-2 {
-  margin-top: 0.5rem;
-}
-
-.mt-6 {
-  margin-top: 1.5rem;
-}
-
-.flex {
-  display: flex;
-}
-
-.gap-4 {
-  gap: 1rem;
-}
-
-.justify-between {
-  justify-content: space-between;
-}
-
-.items-center {
-  align-items: center;
-}
-
-.font-semibold {
-  font-weight: 600;
-}
-
-.text-xs {
-  font-size: 0.75rem;
-}
-
-.text-muted-foreground {
-  color: #6b7280;
-}
-
-.max-h-96 {
-  max-height: 24rem;
-}
-
-.overflow-y-auto {
-  overflow-y: auto;
-}
-
-.border {
-  border: 1px solid #d1d5db;
-}
-
-.rounded {
-  border-radius: 0.25rem;
-}
-
-.p-2 {
-  padding: 0.5rem;
-}
-
-.bg-muted {
-  background-color: #f9fafb;
-}
-
-.block {
-  display: block;
+.message-bubble.received:after {
+  left: -8px;
+  border-right: 8px solid white;
+  border-bottom: 8px solid transparent;
 }
