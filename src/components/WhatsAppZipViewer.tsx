@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import JSZip from "jszip";
-import { Upload, Search, MessageCircle, User, Calendar, FileUp } from "lucide-react";
+import { Upload, Search, MessageCircle, Calendar, FileUp } from "lucide-react";
 import {
   Card,
   CardHeader,
