@@ -186,7 +186,7 @@ const WhatsAppZipViewer: React.FC = () => {
                 >
                   {isLoading ? "Processing..." : "Choose WhatsApp Export ZIP"}
                 </Button>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-gray-500">
                   Select your WhatsApp export ZIP file to view messages
                 </p>
               </div>
@@ -239,7 +239,7 @@ const WhatsAppZipViewer: React.FC = () => {
                   {search && ` matching "${search}"`}
                 </h4>
                 {messages.length > 0 && (
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-gray-500">
                     Total: {messages.length} messages
                   </div>
                 )}
@@ -252,14 +252,14 @@ const WhatsAppZipViewer: React.FC = () => {
                     {messages.length === 0 ? (
                       <div className="space-y-2">
                         <div className="text-4xl">💬</div>
-                        <p className="text-muted-foreground">
+                        <p className="text-gray-500">
                           Upload a WhatsApp export ZIP file to start viewing your messages
                         </p>
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <div className="text-4xl">🔍</div>
-                        <p className="text-muted-foreground">
+                        <p className="text-gray-500">
                           No messages found matching your criteria
                         </p>
                       </div>
