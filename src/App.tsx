@@ -3,7 +3,7 @@ import './App.css'
 
 function App() {
   return (
-    <div className="min-h-screen bg-gray-100 py-8">
+    <div className="min-h-screen bg-[var(--whatsapp-background)] py-4">
       <WhatsAppZipViewer />
     </div>
   )
