@@ -73,6 +73,8 @@ const WhatsAppZipViewer: React.FC = () => {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [filtered, setFiltered] = useState<WhatsAppMessage[]>([]);
+  const [showSearch, setShowSearch] = useState<boolean>(false);
+  const [isUploadMinimized, setIsUploadMinimized] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle ZIP upload
@@ -89,6 +91,10 @@ const WhatsAppZipViewer: React.FC = () => {
     }
     setMessages(allMessages);
     setFiltered(allMessages);
+    // Minimize upload section after successful upload
+    if (allMessages.length > 0) {
+      setIsUploadMinimized(true);
+    }
   };
 
   // Filter/search logic
@@ -112,89 +118,161 @@ const WhatsAppZipViewer: React.FC = () => {
   }, [search, startDate, endDate, messages]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-green-100">
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-400 to-blue-400">
       <div className="container mx-auto p-4 max-w-4xl">
         {/* Header */}
-        <div className="text-center mb-6">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <MessageCircle className="h-8 w-8 text-green-600" />
-            <h1 className="text-3xl font-bold text-gray-800">WhatsApp Export Viewer</h1>
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-full">
+              <MessageCircle className="h-10 w-10 text-white drop-shadow-lg" />
+            </div>
+            <h1 className="text-4xl font-bold text-white drop-shadow-lg">
+              WhatsApp Export Viewer
+            </h1>
           </div>
-          <p className="text-gray-600">Upload your WhatsApp chat export to browse messages</p>
+          <p className="text-white/90 text-lg font-medium drop-shadow">
+            Upload your WhatsApp chat export to browse messages with style! ✨
+          </p>
         </div>
 
         {/* Upload Section */}
-        <Card className="mb-6 border-green-200 shadow-lg">
-          <CardHeader className="bg-green-600 text-white rounded-t-lg">
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              Upload Chat Export
-            </CardTitle>
-            <CardDescription className="text-green-100">
-              Select your WhatsApp chat export ZIP file
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div
-              className={cn(
-                "border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer hover:border-green-400 hover:bg-green-50",
-                messages.length > 0 ? "border-green-300 bg-green-50" : "border-gray-300"
-              )}
-              onClick={() => fileInputRef.current?.click()}
+        {!isUploadMinimized ? (
+          <Card className="mb-8 border-0 shadow-2xl bg-white/95 backdrop-blur-sm">
+            <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-t-xl">
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <Upload className="h-6 w-6" />
+                </div>
+                Upload Chat Export
+              </CardTitle>
+              <CardDescription className="text-emerald-100 font-medium">
+                Select your WhatsApp chat export ZIP file and let the magic begin! 🚀
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-8">
+              <div
+                className={cn(
+                  "border-3 border-dashed rounded-xl p-10 text-center transition-all duration-300 cursor-pointer transform hover:scale-[1.02]",
+                  messages.length > 0 
+                    ? "border-emerald-400 bg-emerald-50 shadow-lg" 
+                    : "border-gray-300 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-lg"
+                )}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <div className="mb-6">
+                  <div className="inline-flex p-4 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full shadow-lg">
+                    <FileUp className="h-12 w-12 text-white" />
+                  </div>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-3">
+                  {messages.length > 0 ? "🎉 Chat loaded successfully!" : "Choose your WhatsApp export file"}
+                </h3>
+                <p className="text-gray-600 text-lg mb-6">
+                  {messages.length > 0 
+                    ? `${messages.length} messages loaded and ready to explore!` 
+                    : "Click here to select a .zip file containing your WhatsApp chat export"
+                  }
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".zip"
+                  onChange={handleZipUpload}
+                  className="hidden"
+                />
+                <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold px-8 py-3 rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105">
+                  {messages.length > 0 ? "Load Different File" : "Select File"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          /* Minimized Upload Section */
+          <Card className="mb-6 border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg">
+                    <FileUp className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-800">
+                      {messages.length} messages loaded
+                    </h4>
+                    <p className="text-sm text-gray-600">Chat export ready!</p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsUploadMinimized(false)}
+                  className="text-emerald-600 border-emerald-300 hover:bg-emerald-50"
+                >
+                  Change File
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Search Toggle Button */}
+        {messages.length > 0 && !showSearch && (
+          <div className="mb-6 text-center">
+            <Button
+              onClick={() => setShowSearch(true)}
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold px-8 py-3 rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105"
             >
-              <FileUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p className="text-lg font-medium text-gray-700 mb-2">
-                {messages.length > 0 ? "Chat loaded successfully!" : "Choose your WhatsApp export file"}
-              </p>
-              <p className="text-sm text-gray-500">
-                {messages.length > 0 
-                  ? `${messages.length} messages loaded` 
-                  : "Click here to select a .zip file containing your WhatsApp chat export"
-                }
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".zip"
-                onChange={handleZipUpload}
-                className="hidden"
-              />
-              <Button className="mt-4 bg-green-600 hover:bg-green-700">
-                {messages.length > 0 ? "Load Different File" : "Select File"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+              <Search className="h-5 w-5 mr-2" />
+              Search & Filter Messages ✨
+            </Button>
+          </div>
+        )}
 
         {/* Search and Filter Section */}
-        {messages.length > 0 && (
-          <Card className="mb-6 border-green-200 shadow-lg">
-            <CardHeader className="bg-gray-50 border-b border-gray-200">
-              <CardTitle className="flex items-center gap-2 text-gray-800">
-                <Search className="h-5 w-5" />
-                Search & Filter Messages
-              </CardTitle>
+        {messages.length > 0 && showSearch && (
+          <Card className="mb-8 border-0 shadow-2xl bg-white/95 backdrop-blur-sm">
+            <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-t-xl">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-3 text-xl">
+                  <div className="p-2 bg-white/20 rounded-lg">
+                    <Search className="h-6 w-6" />
+                  </div>
+                  Search & Filter Messages
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSearch(false)}
+                  className="text-white hover:bg-white/20"
+                >
+                  ✕
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-6">
+            <CardContent className="p-8">
+              <div className="space-y-8">
                 {/* Search Box */}
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <div className="absolute left-4 top-1/2 transform -translate-y-1/2 p-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
+                    <Search className="h-4 w-4 text-white" />
+                  </div>
                   <Input
                     id="search"
                     type="text"
-                    placeholder="Search messages or sender names..."
+                    placeholder="Search messages or sender names... ✨"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-10 h-11"
+                    className="pl-14 h-14 text-lg border-2 border-purple-200 focus:border-purple-500 rounded-xl"
                   />
                 </div>
 
                 {/* Date Range */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="start-date" className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="start-date" className="flex items-center gap-2 text-lg font-semibold text-gray-700">
+                      <div className="p-1 bg-gradient-to-r from-blue-500 to-teal-500 rounded-lg">
+                        <Calendar className="h-4 w-4 text-white" />
+                      </div>
                       Start Date
                     </Label>
                     <DatePicker
@@ -204,9 +282,11 @@ const WhatsAppZipViewer: React.FC = () => {
                       placeholder="Select start date"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="end-date" className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
+                  <div className="space-y-3">
+                    <Label htmlFor="end-date" className="flex items-center gap-2 text-lg font-semibold text-gray-700">
+                      <div className="p-1 bg-gradient-to-r from-blue-500 to-teal-500 rounded-lg">
+                        <Calendar className="h-4 w-4 text-white" />
+                      </div>
                       End Date
                     </Label>
                     <DatePicker
@@ -219,15 +299,17 @@ const WhatsAppZipViewer: React.FC = () => {
                 </div>
 
                 {/* Filter Results */}
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <MessageCircle className="h-4 w-4" />
-                    <span className="font-medium">
+                <div className="flex items-center justify-between pt-6 border-t-2 border-gray-100">
+                  <div className="flex items-center gap-3 text-gray-700">
+                    <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg">
+                      <MessageCircle className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="font-semibold text-lg">
                       {filtered.length} of {messages.length} messages
                     </span>
                     {search && (
-                      <span className="text-green-600">
-                        matching "{search}"
+                      <span className="text-purple-600 font-medium">
+                        matching "{search}" ✨
                       </span>
                     )}
                   </div>
@@ -240,6 +322,7 @@ const WhatsAppZipViewer: React.FC = () => {
                         setStartDate(undefined);
                         setEndDate(undefined);
                       }}
+                      className="border-2 border-purple-300 text-purple-600 hover:bg-purple-50 font-semibold"
                     >
                       Clear Filters
                     </Button>
@@ -252,71 +335,128 @@ const WhatsAppZipViewer: React.FC = () => {
 
         {/* Messages Section */}
         {messages.length > 0 && (
-          <Card className="border-green-200 shadow-lg">
-            <CardHeader className="bg-gray-50 border-b border-gray-200">
-              <CardTitle className="flex items-center gap-2 text-gray-800">
-                <MessageCircle className="h-5 w-5" />
-                Chat Messages
+          <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-sm overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-6">
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <MessageCircle className="h-6 w-6" />
+                </div>
+                💬 Chat Messages
+                <div className="ml-auto bg-white/20 px-3 py-1 rounded-full text-sm font-medium">
+                  {filtered.length} messages
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="max-h-[600px] overflow-y-auto bg-gray-50">
+              <div className="h-[700px] overflow-y-auto bg-gradient-to-b from-blue-50/50 to-purple-50/50">
                 {filtered.length === 0 ? (
-                  <div className="p-8 text-center text-gray-500">
-                    <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p className="text-lg font-medium mb-2">No messages found</p>
-                    <p className="text-sm">Try adjusting your search criteria</p>
+                  <div className="p-12 text-center">
+                    <div className="inline-flex p-6 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full shadow-lg mb-6">
+                      <MessageCircle className="h-16 w-16 text-white" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-700 mb-3">No messages found</h3>
+                    <p className="text-gray-500 text-lg">Try adjusting your search criteria ✨</p>
                   </div>
                 ) : (
-                  <div className="p-4 space-y-2">
+                  <div className="p-6 space-y-4">
                     {filtered.map((message, i) => {
-                      // Create a simple hash to determine message alignment
+                      // Create a simple hash to determine message alignment and colors
                       const senderHash = message.sender.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-                      const isOwnMessage = senderHash % 3 === 0; // Randomly assign some messages as "own"
+                      const isOwnMessage = senderHash % 3 === 0;
+                      
+                      // Generate vibrant colors for different senders
+                      const senderColors = [
+                        'from-blue-500 to-blue-600',
+                        'from-green-500 to-green-600', 
+                        'from-purple-500 to-purple-600',
+                        'from-pink-500 to-pink-600',
+                        'from-indigo-500 to-indigo-600',
+                        'from-red-500 to-red-600',
+                        'from-yellow-500 to-yellow-600',
+                        'from-teal-500 to-teal-600'
+                      ];
+                      const senderColorIndex = senderHash % senderColors.length;
+                      const bubbleColor = isOwnMessage ? 'from-emerald-500 to-emerald-600' : senderColors[senderColorIndex];
                       
                       return (
                         <div
                           key={i}
                           className={cn(
-                            "flex",
-                            isOwnMessage ? "justify-end" : "justify-start"
+                            "flex items-end gap-3 group",
+                            isOwnMessage ? "justify-end flex-row-reverse" : "justify-start"
                           )}
                         >
-                          <div
-                            className={cn(
-                              "max-w-[70%] rounded-2xl px-4 py-2 shadow-sm",
-                              isOwnMessage
-                                ? "bg-green-500 text-white rounded-br-sm"
-                                : "bg-white text-gray-800 rounded-bl-sm border border-gray-200"
-                            )}
-                          >
+                          {/* Avatar */}
+                          {!isOwnMessage && (
+                            <div className="flex-shrink-0 mb-2">
+                              <div className={cn(
+                                "w-10 h-10 rounded-full flex items-center justify-center shadow-lg bg-gradient-to-r",
+                                senderColors[senderColorIndex]
+                              )}>
+                                <span className="text-white font-bold text-sm">
+                                  {message.sender.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Message Bubble */}
+                          <div className={cn(
+                            "max-w-[75%] transition-all duration-200 group-hover:scale-[1.02]",
+                            isOwnMessage ? "items-end" : "items-start"
+                          )}>
+                            {/* Sender name for incoming messages */}
                             {!isOwnMessage && (
-                              <div className="flex items-center gap-2 mb-1">
-                                <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
-                                  <User className="h-3 w-3 text-gray-600" />
-                                </div>
-                                <span className="text-xs font-semibold text-green-600">
+                              <div className="mb-1 ml-4">
+                                <span className={cn(
+                                  "text-sm font-bold bg-gradient-to-r bg-clip-text text-transparent",
+                                  senderColors[senderColorIndex]
+                                )}>
                                   {message.sender}
                                 </span>
                               </div>
                             )}
-                            <p className="text-sm leading-relaxed mb-1">
-                              {message.message}
-                            </p>
+                            
+                            {/* Message content */}
                             <div className={cn(
-                              "text-xs flex items-center gap-1",
-                              isOwnMessage ? "text-green-100 justify-end" : "text-gray-500 justify-end"
+                              "relative px-5 py-3 rounded-2xl shadow-lg bg-gradient-to-r text-white",
+                              bubbleColor,
+                              isOwnMessage 
+                                ? "rounded-br-md" 
+                                : "rounded-bl-md"
                             )}>
-                              <span>
-                                {message.datetime.toLocaleString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
+                              <p className="text-white leading-relaxed font-medium">
+                                {message.message}
+                              </p>
+                              
+                              {/* Timestamp */}
+                              <div className={cn(
+                                "flex items-center gap-1 mt-2 text-xs font-medium",
+                                "text-white/80"
+                              )}>
+                                <span>
+                                  {message.datetime.toLocaleString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                                {isOwnMessage && (
+                                  <span className="ml-1">✓✓</span>
+                                )}
+                              </div>
                             </div>
                           </div>
+                          
+                          {/* Own message avatar */}
+                          {isOwnMessage && (
+                            <div className="flex-shrink-0 mb-2">
+                              <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
+                                <span className="text-white font-bold text-sm">Me</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
