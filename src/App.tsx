@@ -1,5 +1,5 @@
 import WhatsAppZipViewer from '@/components/WhatsAppZipViewer'
-import './App.css'
+import './index.css'
 
 function App() {
   return (
