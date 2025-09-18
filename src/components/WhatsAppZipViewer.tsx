@@ -10,9 +10,9 @@ import {
   CardDescription,
   Label,
 } from "@/components/ui";
-import { Button } from "@/components/ui/button";
-import { Search, Upload, Calendar, MessageSquare, Filter } from "lucide-react";
+import { Search, Upload, Calendar, MessageSquare, Filter, Eye } from "lucide-react";
 import ChatBubble from "@/components/ChatBubble";
+import { Button } from "@/components/ui/button";
 
 interface WhatsAppMessage {
   datetime: Date;
@@ -47,7 +47,48 @@ const WhatsAppZipViewer: React.FC = () => {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [filtered, setFiltered] = useState<WhatsAppMessage[]>([]);
+  const [currentUser, setCurrentUser] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Demo function to show sample messages
+  const loadSampleData = () => {
+    const sampleMessages: WhatsAppMessage[] = [
+      {
+        datetime: new Date('2024-01-15 10:30:00'),
+        sender: 'John Doe',
+        message: 'Hey! How are you doing?'
+      },
+      {
+        datetime: new Date('2024-01-15 10:32:00'),
+        sender: 'Me',
+        message: 'Hi John! I\'m doing great, thanks for asking. How about you?'
+      },
+      {
+        datetime: new Date('2024-01-15 10:33:00'),
+        sender: 'John Doe',
+        message: 'I\'m good too! Just working on some projects. Are you free for lunch today?'
+      },
+      {
+        datetime: new Date('2024-01-15 10:35:00'),
+        sender: 'Me',
+        message: 'Sure! What time works for you?'
+      },
+      {
+        datetime: new Date('2024-01-15 10:36:00'),
+        sender: 'John Doe',
+        message: 'How about 12:30 PM at that new Italian place downtown?'
+      },
+      {
+        datetime: new Date('2024-01-15 10:37:00'),
+        sender: 'Me',
+        message: 'Perfect! See you there 😊'
+      }
+    ];
+    
+    setMessages(sampleMessages);
+    setFiltered(sampleMessages);
+    setCurrentUser('Me');
+  };
 
   // Handle ZIP upload
   const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,14 +96,29 @@ const WhatsAppZipViewer: React.FC = () => {
     if (!file) return;
     const zip = await JSZip.loadAsync(file);
     let allMessages: WhatsAppMessage[] = [];
+    
     for (const filename of Object.keys(zip.files)) {
       if (filename.endsWith(".txt")) {
         const text = await zip.files[filename].async("string");
         allMessages = allMessages.concat(parseWhatsAppText(text));
       }
     }
+    
     setMessages(allMessages);
     setFiltered(allMessages);
+    
+    // Try to determine the current user (most frequent sender might be the user)
+    if (allMessages.length > 0) {
+      const senderCounts = allMessages.reduce((acc, msg) => {
+        acc[msg.sender] = (acc[msg.sender] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const mostFrequentSender = Object.entries(senderCounts)
+        .sort(([,a], [,b]) => b - a)[0]?.[0];
+      
+      setCurrentUser(mostFrequentSender || "");
+    }
   };
 
   // Filter/search logic
@@ -116,6 +172,15 @@ const WhatsAppZipViewer: React.FC = () => {
                 className="border-0 bg-transparent p-0 h-auto file:bg-[var(--whatsapp-green)] file:text-white file:border-0 file:rounded-md file:px-3 file:py-1"
               />
             </div>
+            <Button
+              onClick={loadSampleData}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Eye className="h-4 w-4" />
+              Preview Demo
+            </Button>
           </div>
 
           {/* Search and Filters */}
@@ -181,7 +246,10 @@ const WhatsAppZipViewer: React.FC = () => {
         </CardHeader>
         
         <CardContent>
-          <div className="h-[500px] overflow-y-auto p-4 bg-[var(--whatsapp-background)] rounded-lg border">
+          <div className="h-[500px] overflow-y-auto p-4 bg-[#efeae2] dark:bg-[#0b141a] rounded-lg border relative" style={{
+            backgroundImage: `url("data:image/svg+xml,%3csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3e%3cdefs%3e%3cpattern id='a' width='40' height='40' patternUnits='userSpaceOnUse'%3e%3cpath d='M0 40L40 0H20L0 20M40 40V20L20 40' fill='%23f0f0f0' fill-opacity='0.05'/%3e%3c/pattern%3e%3c/defs%3e%3crect width='100%25' height='100%25' fill='url(%23a)'/%3e%3c/svg%3e")`,
+            backgroundSize: '40px 40px'
+          }}>
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                 <MessageSquare className="h-16 w-16 mb-4 opacity-20" />
@@ -201,7 +269,7 @@ const WhatsAppZipViewer: React.FC = () => {
                     sender={m.sender}
                     message={m.message}
                     datetime={m.datetime}
-                    isOutgoing={i % 3 === 0} // Simple alternating pattern for demo
+                    isOutgoing={m.sender === currentUser}
                   />
                 ))}
               </div>
