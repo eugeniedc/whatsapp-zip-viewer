@@ -312,8 +312,8 @@ const WhatsAppZipViewer: React.FC = () => {
 
   {/* Upload Section */}
   {!isUploadMinimized ? (
-          <Card className="mb-8 border-0 shadow-2xl bg-white/95 backdrop-blur-sm">
-            <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-t-xl">
+          <Card className="p-0 mb-8 border-0 shadow-2xl bg-white/95 backdrop-blur-sm">
+            <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-t-xl p-4">
               <CardTitle className="flex items-center gap-3 text-xl">
                 <div className="p-2 bg-white/20 rounded-lg">
                   <Upload className="h-6 w-6" />
@@ -376,7 +376,7 @@ const WhatsAppZipViewer: React.FC = () => {
           </Card>
         ) : (
           /* Minimized Upload Section */
-          <Card className="mb-6 border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+          <Card className="p-0 mb-6 border-0 shadow-lg bg-white/90 backdrop-blur-sm">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -387,7 +387,7 @@ const WhatsAppZipViewer: React.FC = () => {
                     <h4 className="font-semibold text-gray-800">
                       {messages.length} messages loaded
                     </h4>
-                    <p className="text-sm text-gray-600">Chat export ready!</p>
+                    <p className="text-sm text-gray-600">Chat import ready!</p>
                   </div>
                 </div>
                 <Button
@@ -418,8 +418,8 @@ const WhatsAppZipViewer: React.FC = () => {
 
         {/* Search and Filter Section */}
         {messages.length > 0 && showSearch && (
-          <Card className="mb-8 border-0 shadow-2xl bg-white/95 backdrop-blur-sm">
-            <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-t-xl">
+          <Card className="p-0 mb-8 border-0 shadow-2xl bg-white/95 backdrop-blur-sm">
+            <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-t-xl p-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-3 text-xl">
                   <div className="p-2 bg-white/20 rounded-lg">
@@ -532,7 +532,7 @@ const WhatsAppZipViewer: React.FC = () => {
           </div>
         )}
         {!isProcessingMessages && messages.length > 0 && (
-          <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-sm overflow-hidden">
+          <Card className="p-0 border-0 shadow-2xl bg-white/95 backdrop-blur-sm overflow-hidden">
             <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-6">
               <CardTitle className="flex items-center gap-3 text-xl">
                 <div className="p-2 bg-white/20 rounded-lg">
