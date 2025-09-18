@@ -99,48 +99,84 @@ function mapMediaToMessages(messages: WhatsAppMessage[], mediaFiles: Map<string,
   // 建立一個 filename -> key 的對照表（key 為 mediaFiles 的原始 key，filename 為不含路徑的檔名）
   const filenameMap = new Map<string, string>();
   for (const key of mediaFiles.keys()) {
-    filenameMap.set(key.split('/').pop() || key, key);
+    const filename = key.split('/').pop() || key;
+    filenameMap.set(filename, key);
+    // 也加入沒有副檔名的版本
+    const nameWithoutExt = filename.split('.')[0];
+    if (nameWithoutExt !== filename) {
+      filenameMap.set(nameWithoutExt, key);
+    }
   }
+  
+  console.log('Filename map:', Array.from(filenameMap.entries()));
+  
   return messages.map(message => {
     // 支援 <添付ファイル: filename> 格式
     const mediaMatches = [];
-    // 1. 先抓 <添付ファイル: ...>
-    const attachTagRegex = /<添付ファイル: ([^>]+)>/gi;
+    // 1. 先抓 <添付ファイル: ...> 格式（注意空格）
+    const attachTagRegex = /<添付ファイル:\s*([^>]+)>/gi;
     let tagMatch;
     while ((tagMatch = attachTagRegex.exec(message.message)) !== null) {
-      mediaMatches.push(tagMatch[1]);
+      mediaMatches.push(tagMatch[1].trim());
     }
-    // 2. 再抓原本的檔名格式
-    const fileNameRegex = /(IMG-\d+-WA\d+\.\w+|VID-\d+-WA\d+\.\w+|AUD-\d+-WA\d+\.\w+|STK-\d+-WA\d+\.\w+|[\w-]+\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|mp3|wav|ogg|pdf|doc))/gi;
+    // 2. 再抓原本的檔名格式，包括長檔名
+    const fileNameRegex = /(\d{8}-PHOTO-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.jpg|IMG-\d+-WA\d+\.\w+|VID-\d+-WA\d+\.\w+|AUD-\d+-WA\d+\.\w+|STK-\d+-WA\d+\.\w+|[\w-]+\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|mp3|wav|ogg|pdf|doc))/gi;
     let fileMatch;
     while ((fileMatch = fileNameRegex.exec(message.message)) !== null) {
       mediaMatches.push(fileMatch[0]);
     }
+    
     if (mediaMatches.length > 0) {
+      console.log(`Found media matches for message "${message.message}":`, mediaMatches);
+      
       const attachedMedia: WhatsAppMessage['mediaFiles'] = [];
       const seen = new Set<string>();
+      
       mediaMatches.forEach(mediaRef => {
         // Clean the filename - remove "(file attached)" part if present
-        const cleanRef = mediaRef.replace(/\s*\(file attached\).*/i, '');
+        const cleanRef = mediaRef.replace(/\s*\(file attached\).*/i, '').trim();
         // 直接用 filenameMap 比對
         const justFilename = cleanRef.split('/').pop() || cleanRef;
+        
         if (seen.has(justFilename)) return;
         seen.add(justFilename);
-        const key = filenameMap.get(justFilename);
+        
+        // 嘗試多種匹配方式
+        let key = filenameMap.get(justFilename);
+        if (!key) {
+          // 嘗試不帶副檔名的匹配
+          const nameWithoutExt = justFilename.split('.')[0];
+          key = filenameMap.get(nameWithoutExt);
+          
+          if (!key) {
+            // 嘗試模糊匹配：檔名包含部分關鍵字
+            for (const [mapKey, mapValue] of filenameMap.entries()) {
+              if (mapKey.includes(nameWithoutExt) || nameWithoutExt.includes(mapKey.split('.')[0])) {
+                key = mapValue;
+                break;
+              }
+            }
+          }
+        }
+        
         if (key && mediaFiles.has(key)) {
+          console.log(`Successfully mapped ${justFilename} to ${key}`);
           attachedMedia.push({
             filename: justFilename,
             type: getMediaType(justFilename),
             data: mediaFiles.get(key)!,
           });
+        } else {
+          console.log(`Could not find media file for: ${justFilename}`);
+          console.log('Available files:', Array.from(filenameMap.keys()));
         }
       });
+      
       if (attachedMedia.length > 0) {
-        // 清理訊息內容
-        let cleanMessage = message.message.replace(attachTagRegex, '').replace(/\s*\(file attached\)/gi, '').trim();
+        // 保留原始訊息內容，不清理媒體檔名
         return {
           ...message,
-          message: cleanMessage,
+          message: message.message, // 保持原始訊息，包含媒體檔名
           mediaFiles: attachedMedia,
         };
       }
@@ -200,14 +236,28 @@ const WhatsAppZipViewer: React.FC = () => {
     setIsProcessingMessages(false);
   let allMessages: WhatsAppMessage[] = [];
   const mediaFiles = new Map<string, string>();
+  // 動態取得 owner name：優先從檔名，否則用第一則訊息 sender
   let owner = "";
+  
+  // 嘗試從 ZIP 檔名取得 owner
+  if (file && file.name) {
+    // 例如 WhatsApp Chat - Kelly Chan.zip 取 Kelly Chan
+    const match = file.name.match(/WhatsApp Chat - (.+)\.zip$/i);
+    if (match && match[1]) {
+      owner = match[1].trim();
+    }
+  }
     try {
       const zip = await JSZip.loadAsync(file, {});
       const fileEntries = Object.entries(zip.files);
       let processed = 0;
       const total = fileEntries.length;
       // 嘗試取得 ownerName（只用 _chat.txt 第一則 sender）s
-      // First pass: extract media files
+      // First pass: extract media files (限制處理檔案大小避免記憶體不足)
+      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit per file
+      let mediaCount = 0;
+      const MAX_MEDIA_FILES = 100; // 最多處理 100 個媒體檔案
+      
       for (const [filename, zipEntry] of fileEntries) {
         if (!zipEntry.dir && !filename.endsWith('.txt') && !filename.endsWith('.py')) {
           const extension = filename.split('.').pop()?.toLowerCase();
@@ -217,17 +267,29 @@ const WhatsAppZipViewer: React.FC = () => {
             'mp3', 'wav', 'ogg', 'm4a', 'aac',
             'pdf', 'doc', 'docx'
           ].includes(extension || '');
-          if (isMediaFile) {
+          
+          if (isMediaFile && mediaCount < MAX_MEDIA_FILES) {
             try {
               const arrayBuffer = await zipEntry.async("arraybuffer");
+              
+              // 檢查檔案大小
+              if (arrayBuffer.byteLength > MAX_FILE_SIZE) {
+                console.warn(`Skipping large file ${filename}: ${arrayBuffer.byteLength} bytes`);
+                continue;
+              }
+              
               const blob = new Blob([arrayBuffer]);
-              const dataUrl = await new Promise<string>((resolve) => {
+              const dataUrl = await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = () => resolve(reader.result as string);
+                reader.onerror = reject;
                 reader.readAsDataURL(blob);
               });
+              
               const justFilename = filename.split('/').pop() || filename;
               mediaFiles.set(justFilename, dataUrl);
+              mediaCount++;
+              
             } catch (error) {
               console.warn(`Could not process media file ${filename}:`, error);
             }
@@ -248,11 +310,19 @@ const WhatsAppZipViewer: React.FC = () => {
           if (!owner && parsedMessages.length > 0) {
             owner = parsedMessages[0].sender;
           }
+          // 將檔名資訊加入每則訊息
+          allMessages = allMessages.map(msg => ({
+            ...msg,
+            chatFileName: filename
+          }));
         }
         processed++;
         setUploadProgress(Math.round((processed / total) * 95)); // 95% for text
       }
       // Third pass: map media files to messages
+      console.log(`Processing ${allMessages.length} messages with ${mediaFiles.size} media files`);
+      console.log('Media files available:', Array.from(mediaFiles.keys()));
+      console.log('Detected owner:', owner);
       const messagesWithMedia = mapMediaToMessages(allMessages, mediaFiles);
   setMessages(messagesWithMedia);
   setFiltered(messagesWithMedia);
