@@ -12,32 +12,90 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-
-interface WhatsAppMessage {
-  datetime: Date;
-  sender: string;
-  message: string;
-}
+import ChatMessage, { WhatsAppMessage } from "./ChatMessage";
 
 function parseWhatsAppText(text: string): WhatsAppMessage[] {
   const regex =
-    /^(\d{1,2}\/\d{1,2}\/\d{2,4}), (\d{1,2}:\d{2}) - ([^:]+): (.+)$/m;
-  return text
-    .split("\n")
-    .map((line) => {
-      const match = line.match(regex);
-      if (match) {
-        const [_, date, time, sender, message] = match;
-        // WhatsApp export dates are often in MM/DD/YY or DD/MM/YY, so this may need adjustment for your locale
+    /^(\d{1,2}\/\d{1,2}\/\d{2,4}), (\d{1,2}:\d{2}) - ([^:]+): (.+)$/gm;
+  const messages: WhatsAppMessage[] = [];
+  let match;
+  
+  while ((match = regex.exec(text)) !== null) {
+    const [_, date, time, sender, message] = match;
+    messages.push({
+      datetime: new Date(`${date} ${time}`),
+      sender,
+      message,
+    });
+  }
+  
+  return messages;
+}
+
+// Function to determine media type from filename
+function getMediaType(filename: string): 'image' | 'sticker' | 'document' | 'audio' | 'video' {
+  const extension = filename.split('.').pop()?.toLowerCase();
+  
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(extension || '')) {
+    return 'image';
+  }
+  if (['webp', 'tgs'].includes(extension || '') && filename.includes('sticker')) {
+    return 'sticker';
+  }
+  if (['mp3', 'wav', 'ogg', 'm4a', 'aac'].includes(extension || '')) {
+    return 'audio';
+  }
+  if (['mp4', 'mov', 'avi', 'webm', '3gp'].includes(extension || '')) {
+    return 'video';
+  }
+  return 'document';
+}
+
+// Enhanced function to map media files to messages
+function mapMediaToMessages(messages: WhatsAppMessage[], mediaFiles: Map<string, string>): WhatsAppMessage[] {
+  return messages.map(message => {
+    // Look for media references in the message text - handle both direct filenames and "file attached" format
+    const mediaMatches = message.message.match(/(IMG-\d+-WA\d+\.\w+|VID-\d+-WA\d+\.\w+|AUD-\d+-WA\d+\.\w+|STK-\d+-WA\d+\.\w+|[\w-]+\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|mp3|wav|ogg|pdf|doc))/gi);
+    
+    if (mediaMatches) {
+      const attachedMedia: WhatsAppMessage['mediaFiles'] = [];
+      
+      mediaMatches.forEach(mediaRef => {
+        // Clean the filename - remove "(file attached)" part if present
+        const cleanRef = mediaRef.replace(/\s*\(file attached\).*$/i, '');
+        
+        // Try different possible filename variations
+        const possibleNames = [
+          cleanRef,
+          cleanRef.toLowerCase(),
+          cleanRef.toUpperCase(),
+        ];
+        
+        for (const name of possibleNames) {
+          if (mediaFiles.has(name)) {
+            attachedMedia.push({
+              filename: name,
+              type: getMediaType(name),
+              data: mediaFiles.get(name)!,
+            });
+            break;
+          }
+        }
+      });
+      
+      if (attachedMedia.length > 0) {
+        // If we found media, we might want to clean the message text
+        const cleanMessage = message.message.replace(/\s*\(file attached\)/gi, '').trim();
         return {
-          datetime: new Date(`${date} ${time}`),
-          sender,
-          message,
+          ...message,
+          message: cleanMessage,
+          mediaFiles: attachedMedia,
         };
       }
-      return null;
-    })
-    .filter(Boolean) as WhatsAppMessage[];
+    }
+    
+    return message;
+  });
 }
 
 // Simple DatePicker component
@@ -81,18 +139,60 @@ const WhatsAppZipViewer: React.FC = () => {
   const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
     const zip = await JSZip.loadAsync(file);
     let allMessages: WhatsAppMessage[] = [];
+    const mediaFiles = new Map<string, string>();
+    
+    // First pass: extract media files
+    for (const [filename, zipEntry] of Object.entries(zip.files)) {
+      if (!zipEntry.dir && !filename.endsWith('.txt') && !filename.endsWith('.py')) {
+        // Check if it's a media file
+        const extension = filename.split('.').pop()?.toLowerCase();
+        const isMediaFile = [
+          'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tgs',
+          'mp4', 'mov', 'avi', 'webm', '3gp',
+          'mp3', 'wav', 'ogg', 'm4a', 'aac',
+          'pdf', 'doc', 'docx'
+        ].includes(extension || '');
+        
+        if (isMediaFile) {
+          try {
+            const arrayBuffer = await zipEntry.async("arraybuffer");
+            const blob = new Blob([arrayBuffer]);
+            const dataUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+            
+            // Store with just the filename (without path)
+            const justFilename = filename.split('/').pop() || filename;
+            mediaFiles.set(justFilename, dataUrl);
+          } catch (error) {
+            console.warn(`Could not process media file ${filename}:`, error);
+          }
+        }
+      }
+    }
+    
+    // Second pass: extract text messages
     for (const filename of Object.keys(zip.files)) {
       if (filename.endsWith(".txt")) {
         const text = await zip.files[filename].async("string");
-        allMessages = allMessages.concat(parseWhatsAppText(text));
+        const parsedMessages = parseWhatsAppText(text);
+        allMessages = allMessages.concat(parsedMessages);
       }
     }
-    setMessages(allMessages);
-    setFiltered(allMessages);
+    
+    // Third pass: map media files to messages
+    const messagesWithMedia = mapMediaToMessages(allMessages, mediaFiles);
+    
+    setMessages(messagesWithMedia);
+    setFiltered(messagesWithMedia);
+    
     // Minimize upload section after successful upload
-    if (allMessages.length > 0) {
+    if (messagesWithMedia.length > 0) {
       setIsUploadMinimized(true);
     }
   };
@@ -348,7 +448,7 @@ const WhatsAppZipViewer: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="h-[700px] overflow-y-auto bg-gradient-to-b from-blue-50/50 to-purple-50/50">
+              <div className="h-[700px] overflow-y-auto bg-gradient-to-b from-blue-50/30 to-purple-50/30 backdrop-blur-sm">
                 {filtered.length === 0 ? (
                   <div className="p-12 text-center">
                     <div className="inline-flex p-6 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full shadow-lg mb-6">
@@ -358,106 +458,20 @@ const WhatsAppZipViewer: React.FC = () => {
                     <p className="text-gray-500 text-lg">Try adjusting your search criteria ✨</p>
                   </div>
                 ) : (
-                  <div className="p-6 space-y-4">
+                  <div className="p-6">
                     {filtered.map((message, i) => {
                       // Create a simple hash to determine message alignment and colors
                       const senderHash = message.sender.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
                       const isOwnMessage = senderHash % 3 === 0;
-                      
-                      // Generate vibrant colors for different senders
-                      const senderColors = [
-                        'from-blue-500 to-blue-600',
-                        'from-green-500 to-green-600', 
-                        'from-purple-500 to-purple-600',
-                        'from-pink-500 to-pink-600',
-                        'from-indigo-500 to-indigo-600',
-                        'from-red-500 to-red-600',
-                        'from-yellow-500 to-yellow-600',
-                        'from-teal-500 to-teal-600'
-                      ];
-                      const senderColorIndex = senderHash % senderColors.length;
-                      const bubbleColor = isOwnMessage ? 'from-emerald-500 to-emerald-600' : senderColors[senderColorIndex];
+                      const senderColorIndex = senderHash % 8;
                       
                       return (
-                        <div
+                        <ChatMessage
                           key={i}
-                          className={cn(
-                            "flex items-end gap-3 group",
-                            isOwnMessage ? "justify-end flex-row-reverse" : "justify-start"
-                          )}
-                        >
-                          {/* Avatar */}
-                          {!isOwnMessage && (
-                            <div className="flex-shrink-0 mb-2">
-                              <div className={cn(
-                                "w-10 h-10 rounded-full flex items-center justify-center shadow-lg bg-gradient-to-r",
-                                senderColors[senderColorIndex]
-                              )}>
-                                <span className="text-white font-bold text-sm">
-                                  {message.sender.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Message Bubble */}
-                          <div className={cn(
-                            "max-w-[75%] transition-all duration-200 group-hover:scale-[1.02]",
-                            isOwnMessage ? "items-end" : "items-start"
-                          )}>
-                            {/* Sender name for incoming messages */}
-                            {!isOwnMessage && (
-                              <div className="mb-1 ml-4">
-                                <span className={cn(
-                                  "text-sm font-bold bg-gradient-to-r bg-clip-text text-transparent",
-                                  senderColors[senderColorIndex]
-                                )}>
-                                  {message.sender}
-                                </span>
-                              </div>
-                            )}
-                            
-                            {/* Message content */}
-                            <div className={cn(
-                              "relative px-5 py-3 rounded-2xl shadow-lg bg-gradient-to-r text-white",
-                              bubbleColor,
-                              isOwnMessage 
-                                ? "rounded-br-md" 
-                                : "rounded-bl-md"
-                            )}>
-                              <p className="text-white leading-relaxed font-medium">
-                                {message.message}
-                              </p>
-                              
-                              {/* Timestamp */}
-                              <div className={cn(
-                                "flex items-center gap-1 mt-2 text-xs font-medium",
-                                "text-white/80"
-                              )}>
-                                <span>
-                                  {message.datetime.toLocaleString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </span>
-                                {isOwnMessage && (
-                                  <span className="ml-1">✓✓</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* Own message avatar */}
-                          {isOwnMessage && (
-                            <div className="flex-shrink-0 mb-2">
-                              <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
-                                <span className="text-white font-bold text-sm">Me</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                          message={message}
+                          isOwnMessage={isOwnMessage}
+                          senderColorIndex={senderColorIndex}
+                        />
                       );
                     })}
                   </div>
