@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { splitZipByTimeRangeAndMedia, type SplitOptions } from './utils/spilter';
 import DateTimePicker from './components/DateTimePicker';
+import { Button, Input } from './components/ui';
 
 const SplitZipPage: React.FC = () => {
   const [zipFile, setZipFile] = useState<File | null>(null);
@@ -21,26 +22,26 @@ const SplitZipPage: React.FC = () => {
 
   const handleSplit = async () => {
     if (!zipFile) {
-      setStatus('請先選擇 ZIP 檔案');
+      setStatus('Please select a ZIP file first');
       return;
     }
     if (!start || !end) {
-      setStatus('請選擇日期時間');
+      setStatus('Please choose start and end date/time');
       return;
     }
     const startDate = start;
     const endDate = end;
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      setStatus('日期時間格式不正確');
+      setStatus('Invalid date/time format');
       return;
     }
     if (startDate > endDate) {
-      setStatus('開始時間不可晚於結束時間');
+      setStatus('Start time cannot be later than end time');
       return;
     }
     try {
       setBusy(true);
-      setStatus('處理中，請稍候…');
+      setStatus('Processing, please wait…');
 
       const customExts = mediaExts
         .split(',')
@@ -78,10 +79,10 @@ const SplitZipPage: React.FC = () => {
       URL.revokeObjectURL(dlUrl);
 
       const sizeMB = (outBlob.size / (1024 * 1024)).toFixed(2);
-      setStatus(`完成！輸出大小約 ${sizeMB} MB`);
+      setStatus(`Done! Output size about ${sizeMB} MB`);
     } catch (err: any) {
       console.error(err);
-      setStatus(`發生錯誤：${err?.message || '未知錯誤'}`);
+      setStatus(`Error: ${err?.message || 'Unknown error'}`);
     } finally {
       setBusy(false);
     }
@@ -89,9 +90,9 @@ const SplitZipPage: React.FC = () => {
 
   return (
     <div style={{ padding: 32 }}>
-      <h2>分割 ZIP 檔案</h2>
+      <h2>Split ZIP File</h2>
       <div style={{ marginTop: 12 }}>
-        <input type="file" accept=".zip" onChange={handleFileChange} />
+        <Input type="file" accept=".zip" onChange={handleFileChange} />
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginTop: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -115,17 +116,17 @@ const SplitZipPage: React.FC = () => {
       <div style={{ display: 'flex', gap: 16, marginTop: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <input type="checkbox" checked={includeChat} onChange={(e) => setIncludeChat(e.target.checked)} />
-          包含聊天文字
+          Include chat text
         </label>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <input type="checkbox" checked={includeMedia} onChange={(e) => setIncludeMedia(e.target.checked)} />
-          包含媒體檔
+          Include media files
         </label>
         <label>
-          自訂媒體副檔名（逗號分隔）：
+          Custom media extensions (comma-separated):
           <input
             type="text"
-            placeholder="例：jpg,png,mp4,mp3"
+            placeholder="e.g., jpg,png,mp4,mp3"
             value={mediaExts}
             onChange={(e) => setMediaExts(e.target.value)}
             style={{ minWidth: 260, marginLeft: 6 }}
@@ -133,9 +134,9 @@ const SplitZipPage: React.FC = () => {
         </label>
       </div>
 
-      <button onClick={handleSplit} disabled={!zipFile || busy} style={{ marginTop: 16 }}>
-        {busy ? '處理中…' : '分割並下載'}
-      </button>
+      <Button onClick={handleSplit} disabled={!zipFile || busy} style={{ marginTop: 16 }}>
+        {busy ? 'Processing…' : 'Split and Download'}
+      </Button>
       <div style={{ marginTop: 16, color: busy ? '#333' : '#C00' }}>{status}</div>
     </div>
   );

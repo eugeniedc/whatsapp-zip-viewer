@@ -286,7 +286,6 @@ const WhatsAppZipViewer: React.FC = () => {
     
     // 嘗試從 ZIP 檔名取得 owner
       if (!owner && file && file.name) {
-      // 例如 WhatsApp Chat - Kelly Chan.zip 取 Kelly Chan
       const match = file.name.match(/WhatsApp Chat - (.+)\.zip$/i);
       if (match && match[1]) {
         owner = match[1].trim();
@@ -430,17 +429,17 @@ const WhatsAppZipViewer: React.FC = () => {
             </CardHeader>
                             {/* Owner name input */}
                 <div className="max-w-xl mx-auto text-left mb-6">
-                  <Label htmlFor="owner-name" className="text-gray-700 font-semibold mb-2 block">Owner name（選填）</Label>
+                  <Label htmlFor="owner-name" className="text-gray-700 font-semibold mb-2 block">Owner name (optional)</Label>
                   <Input
                     id="owner-name"
                     type="text"
                     value={ownerNameInput}
                     onChange={(e) => setOwnerNameInput(e.target.value)}
-                    placeholder="輸入擁有者姓名（若與聊天 sender 匹配則優先採用）"
+                    placeholder="Enter owner name (used if it matches a chat sender)"
                     className="h-11"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    若不輸入或不匹配：將優先使用 ZIP 檔名推斷，其次選擇第一個與 ZIP 檔名不同的發言者。
+                    If blank or no match: prefer ZIP-inferred name; otherwise pick the first sender different from the ZIP-inferred name.
                   </p>
                 </div>
             <CardContent className="p-8">
@@ -705,7 +704,7 @@ const WhatsAppZipViewer: React.FC = () => {
                           onClick={() => setVisibleCount(v => v + 100)}
                           className="border-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50 font-semibold px-8 py-3 rounded-xl shadow-lg"
                         >
-                          載入更多訊息 ({Math.min(100, filtered.length - visibleCount)} more)
+                          Load more messages ({Math.min(100, filtered.length - visibleCount)} more)
                         </Button>
                       </div>
                     )}
