@@ -34,10 +34,10 @@ export class MediaLoader {
       if (!zipEntry.dir && !filename.endsWith('.txt') && !filename.endsWith('.py')) {
         const extension = filename.split('.').pop()?.toLowerCase();
         const isMediaFile = [
-          'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tgs',
+          'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic', 'heif', 'tgs',
           'mp4', 'mov', 'avi', 'webm', '3gp',
-          'mp3', 'wav', 'ogg', 'm4a', 'aac',
-          'pdf', 'doc', 'docx'
+          'mp3', 'wav', 'ogg', 'm4a', 'aac', 'opus',
+          'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'
         ].includes(extension || '');
         
         if (isMediaFile) {
@@ -76,7 +76,7 @@ export class MediaLoader {
   private getMediaType(filename: string): 'image' | 'sticker' | 'document' | 'audio' | 'video' {
     const extension = filename.split('.').pop()?.toLowerCase();
     
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(extension || '')) {
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic', 'heif'].includes(extension || '')) {
       return 'image';
     }
     if (['webp', 'tgs'].includes(extension || '') && filename.includes('sticker')) {

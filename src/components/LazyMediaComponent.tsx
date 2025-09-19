@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { mediaLoader } from '@/utils/MediaLoader';
 import { Skeleton } from './ui/skeleton';
+import { Dialog, DialogContent } from './ui/dialog';
 
 interface LazyMediaProps {
   filename: string;
@@ -12,6 +13,7 @@ const LazyMediaComponent: React.FC<LazyMediaProps> = ({ filename, type }) => {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [inView, setInView] = useState(false);
+  const [open, setOpen] = useState(false);
   const elementRef = useRef<HTMLDivElement>(null);
 
   // IntersectionObserver to detect when component comes into view
@@ -86,6 +88,8 @@ const LazyMediaComponent: React.FC<LazyMediaProps> = ({ filename, type }) => {
     }
   };
 
+  const canOpenDialog = !!blobUrl && (type === 'image' || type === 'sticker' || type === 'video' || type === 'audio');
+
   const renderContent = () => {
     if (!inView) {
       // Placeholder before coming into view
@@ -124,21 +128,23 @@ const LazyMediaComponent: React.FC<LazyMediaProps> = ({ filename, type }) => {
     switch (type) {
       case 'image':
         return (
-          <img 
-            src={blobUrl} 
+          <img
+            src={blobUrl}
             alt={filename}
-            className="max-w-full h-auto rounded-lg shadow-lg hover:shadow-xl transition-shadow"
+            className="max-w-full h-auto rounded-lg shadow-lg hover:shadow-xl transition-shadow cursor-zoom-in"
             style={{ maxHeight: '300px', objectFit: 'contain' }}
+            onClick={(e) => { e.stopPropagation(); if (canOpenDialog) setOpen(true); }}
           />
         );
       
       case 'sticker':
         return (
           <div className="bg-transparent p-2">
-            <img 
-              src={blobUrl} 
+            <img
+              src={blobUrl}
               alt={filename}
-              className="max-w-[120px] max-h-[120px] object-contain"
+              className="max-w-[120px] max-h-[120px] object-contain cursor-zoom-in"
+              onClick={(e) => { e.stopPropagation(); if (canOpenDialog) setOpen(true); }}
             />
           </div>
         );
@@ -171,18 +177,20 @@ const LazyMediaComponent: React.FC<LazyMediaProps> = ({ filename, type }) => {
             </div>
             {/* For video/audio, we could add actual player controls here */}
             {blobUrl && type === 'video' && (
-              <video 
+              <video
                 src={blobUrl}
-                className="max-w-full max-h-[200px] rounded"
+                className="max-w-full max-h-[200px] rounded cursor-zoom-in"
                 controls
                 preload="metadata"
+                onClick={(e) => { e.stopPropagation(); if (canOpenDialog) setOpen(true); }}
               />
             )}
             {blobUrl && type === 'audio' && (
-              <audio 
+              <audio
                 src={blobUrl}
                 controls
                 preload="metadata"
+                onClick={(e) => e.stopPropagation()}
               />
             )}
           </div>
@@ -204,9 +212,55 @@ const LazyMediaComponent: React.FC<LazyMediaProps> = ({ filename, type }) => {
   };
 
   return (
-    <div ref={elementRef} className="rounded-lg overflow-hidden bg-white/10 backdrop-blur-sm">
-      {renderContent()}
-    </div>
+    <>
+      <div
+        ref={elementRef}
+        className="rounded-lg overflow-hidden bg-white/10 backdrop-blur-sm"
+        onClick={() => { if (canOpenDialog) setOpen(true); }}
+        role={canOpenDialog ? 'button' : undefined}
+      >
+        {renderContent()}
+      </div>
+
+      {/* Dialog preview */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-4xl bg-white/95">
+          <div className="flex flex-col gap-3 items-center">
+            {blobUrl && (type === 'image' || type === 'sticker') && (
+              <img
+                src={blobUrl}
+                alt={filename}
+                className="max-h-[80vh] w-auto rounded"
+                style={{ objectFit: 'contain' }}
+              />
+            )}
+            {blobUrl && type === 'video' && (
+              <video
+                src={blobUrl}
+                className="max-h-[80vh] w-auto rounded"
+                controls
+                autoPlay
+              />
+            )}
+            {blobUrl && type === 'audio' && (
+              <div className="w-full">
+                <div className="mb-2 text-sm text-gray-700 truncate">{filename}</div>
+                <audio src={blobUrl} controls className="w-full" />
+              </div>
+            )}
+            {blobUrl && (
+              <a
+                href={blobUrl}
+                download={filename}
+                className="mt-2 text-sm text-indigo-600 hover:underline"
+              >
+                下載 / Download
+              </a>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
