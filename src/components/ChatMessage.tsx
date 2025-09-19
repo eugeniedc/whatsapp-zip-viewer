@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React from "react";
 import { cn } from "@/lib/utils";
-import { Skeleton } from "./ui/skeleton";
+import LazyMediaComponent from "./LazyMediaComponent";
 
 export interface WhatsAppMessage {
   datetime: Date;
@@ -10,7 +10,7 @@ export interface WhatsAppMessage {
   mediaFiles?: {
     filename: string;
     type: 'image' | 'sticker' | 'document' | 'audio' | 'video';
-    data: string; // base64 encoded data URL
+    // Removed data field - media will be loaded lazily via MediaLoader
   }[];
 }
 
@@ -86,61 +86,13 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           {/* Media content */}
           {message.mediaFiles && message.mediaFiles.length > 0 && (
             <div className="mb-3 space-y-2">
-              {message.mediaFiles.slice(0, 3).map((media, index) => {
-                const [loading, setLoading] = useState(true);
-                return (
-                  <div key={index} className="rounded-lg overflow-hidden bg-white/10 backdrop-blur-sm">
-                    {media.type === 'image' && (
-                      <>
-                        {loading && <Skeleton className="w-full h-[180px] rounded-lg mb-2" />}
-                        <img 
-                          src={media.data} 
-                          alt={media.filename}
-                          className="max-w-full h-auto rounded-lg shadow-lg hover:shadow-xl transition-shadow"
-                          style={{ maxHeight: '300px', objectFit: 'contain', display: loading ? 'none' : 'block' }}
-                          onLoad={() => setLoading(false)}
-                        />
-                      </>
-                    )}
-                    {media.type === 'sticker' && (
-                      <div className="bg-transparent p-2">
-                        {loading && <Skeleton className="max-w-[120px] max-h-[120px] rounded-lg mb-2" />}
-                        <img 
-                          src={media.data} 
-                          alt={media.filename}
-                          className="max-w-[120px] max-h-[120px] object-contain"
-                          style={{ display: loading ? 'none' : 'block' }}
-                          onLoad={() => setLoading(false)}
-                        />
-                      </div>
-                    )}
-                    {media.type === 'document' && (
-                      <div className="p-3 bg-white/20 rounded-lg flex items-center gap-3">
-                        <div className="w-10 h-10 bg-white/30 rounded-lg flex items-center justify-center">
-                          📄
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-white">{media.filename}</p>
-                          <p className="text-xs text-white/70">Document</p>
-                        </div>
-                      </div>
-                    )}
-                    {(media.type === 'audio' || media.type === 'video') && (
-                      <div className="p-3 bg-white/20 rounded-lg flex items-center gap-3">
-                        <div className="w-10 h-10 bg-white/30 rounded-lg flex items-center justify-center">
-                          {media.type === 'audio' ? '🎵' : '🎬'}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-white">{media.filename}</p>
-                          <p className="text-xs text-white/70">
-                            {media.type === 'audio' ? 'Audio' : 'Video'}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {message.mediaFiles.slice(0, 3).map((media, index) => (
+                <LazyMediaComponent
+                  key={`${media.filename}-${index}`}
+                  filename={media.filename}
+                  type={media.type}
+                />
+              ))}
               {message.mediaFiles.length > 3 && (
                 <div className="text-xs text-white/70 mt-2">（僅顯示前 3 個媒體，剩餘 {message.mediaFiles.length - 3} 個未顯示）</div>
               )}
