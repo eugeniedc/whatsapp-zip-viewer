@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import ChatMessage, { WhatsAppMessage } from "./ChatMessage";
 import { mediaLoader } from "@/utils/MediaLoader";
+import DateTimePicker from "./DateTimePicker";
+import { setDate } from "date-fns";
 
 function parseWhatsAppText(text: string): WhatsAppMessage[] {
   // 更健壯的逐行解析：
@@ -590,11 +592,11 @@ const WhatsAppZipViewer: React.FC = () => {
                       </div>
                       Start Date
                     </Label>
-                    <DatePicker
-                      id="start-date"
-                      value={startDate}
-                      onChange={setStartDate}
-                      placeholder="Select start date"
+                    <DateTimePicker
+                      isHideDateLabel={true}
+                      isHideTimeLabel={true}
+                      date={startDate}
+                      setDate={setStartDate}
                     />
                   </div>
                   <div className="space-y-3">
@@ -604,11 +606,11 @@ const WhatsAppZipViewer: React.FC = () => {
                       </div>
                       End Date
                     </Label>
-                    <DatePicker
-                      id="end-date"
-                      value={endDate}
-                      onChange={setEndDate}
-                      placeholder="Select end date"
+                     <DateTimePicker
+                      isHideDateLabel={true}
+                      isHideTimeLabel={true}
+                      date={endDate}
+                      setDate={setEndDate}
                     />
                   </div>
                 </div>

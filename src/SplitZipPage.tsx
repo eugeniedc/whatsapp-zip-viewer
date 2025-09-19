@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { splitZipByTimeRangeAndMedia, type SplitOptions } from './utils/spilter';
+import DateTimePicker from './components/DateTimePicker';
 
 const SplitZipPage: React.FC = () => {
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [status, setStatus] = useState<string>('');
   const [busy, setBusy] = useState<boolean>(false);
-  const [start, setStart] = useState<string>(''); // datetime-local value
-  const [end, setEnd] = useState<string>('');
+  const [start, setStart] = useState<Date | undefined>(undefined);
+  const [end, setEnd] = useState<Date | undefined>(undefined);
   const [includeChat, setIncludeChat] = useState<boolean>(true);
   const [includeMedia, setIncludeMedia] = useState<boolean>(true);
   const [mediaExts, setMediaExts] = useState<string>('');
@@ -24,11 +25,11 @@ const SplitZipPage: React.FC = () => {
       return;
     }
     if (!start || !end) {
-      setStatus('請選擇起訖日期時間');
+      setStatus('請選擇日期時間');
       return;
     }
-    const startDate = new Date(start);
-    const endDate = new Date(end);
+    const startDate = start;
+    const endDate = end;
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
       setStatus('日期時間格式不正確');
       return;
@@ -59,8 +60,16 @@ const SplitZipPage: React.FC = () => {
       const dlUrl = URL.createObjectURL(outBlob);
       const a = document.createElement('a');
       const baseName = zipFile.name.replace(/\.zip$/i, '');
-      const safeStart = start.replace(/[:T]/g, '').slice(0, 12);
-      const safeEnd = end.replace(/[:T]/g, '').slice(0, 12);
+      const fmt = (d: Date) => {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const HH = String(d.getHours()).padStart(2, '0');
+        const MM = String(d.getMinutes()).padStart(2, '0');
+        return `${yyyy}${mm}${dd}-${HH}${MM}`;
+      };
+      const safeStart = fmt(startDate);
+      const safeEnd = fmt(endDate);
       a.href = dlUrl;
       a.download = `${baseName}-split-${safeStart}-${safeEnd}.zip`;
       document.body.appendChild(a);
@@ -87,12 +96,19 @@ const SplitZipPage: React.FC = () => {
 
       <div style={{ display: 'flex', gap: 12, marginTop: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <label>
-          起始時間：
-          <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />
+          Start Time:
+           <DateTimePicker
+            date={start}
+            setDate={setStart}
+           />
+       
         </label>
         <label>
-          結束時間：
-          <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
+          End Time:
+          <DateTimePicker
+            date={end}
+            setDate={setEnd}
+          />
         </label>
       </div>
 
