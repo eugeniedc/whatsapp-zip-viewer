@@ -21,6 +21,17 @@ const LazyMediaComponent: React.FC<LazyMediaProps> = ({ filename, type }) => {
         const entry = entries[0];
         if (entry.isIntersecting && !inView) {
           setInView(true);
+        } else if (!entry.isIntersecting && inView && blobUrl) {
+          // Media has scrolled out of view - clean up after delay
+          setTimeout(() => {
+            if (!entry.isIntersecting) {
+              console.log(`Cleaning up media that scrolled out of view: ${filename}`);
+              mediaLoader.revokeMedia(filename);
+              setBlobUrl(null);
+              setInView(false);
+              setLoading(true);
+            }
+          }, 30000); // 30 second delay before cleanup
         }
       },
       {
@@ -38,7 +49,7 @@ const LazyMediaComponent: React.FC<LazyMediaProps> = ({ filename, type }) => {
         observer.unobserve(elementRef.current);
       }
     };
-  }, [inView]);
+  }, [inView, blobUrl, filename]);
 
   // Load media when component comes into view
   useEffect(() => {

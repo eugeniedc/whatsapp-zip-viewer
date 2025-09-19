@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import JSZip from "jszip";
 import { Upload, Search, MessageCircle, Calendar, FileUp } from "lucide-react";
 import {
@@ -205,10 +205,30 @@ const WhatsAppZipViewer: React.FC = () => {
   const [isProcessingMessages, setIsProcessingMessages] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Cleanup MediaLoader on component unmount
+  React.useEffect(() => {
+    return () => {
+      mediaLoader.cleanup();
+    };
+  }, []);
+
+  // Optimize rendering for large message lists
+  const displayMessages = useMemo(() => {
+    if (filtered.length > 1000) {
+      // For very large lists, only render visible messages plus buffer
+      return filtered.slice(0, Math.min(visibleCount, 500));
+    }
+    return filtered.slice(0, visibleCount);
+  }, [filtered, visibleCount]);
+
   // Handle ZIP upload
   const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    // Cleanup previous media before processing new ZIP
+    mediaLoader.cleanup();
+    
     setIsUploading(true);
     setUploadProgress(0);
     setIsProcessingMessages(false);
@@ -554,7 +574,7 @@ const WhatsAppZipViewer: React.FC = () => {
                 </div>
                 💬 Chat Messages
                 <div className="ml-auto bg-white/20 px-3 py-1 rounded-full text-sm font-medium">
-                  {filtered.length} messages
+                  {filtered.length} messages {filtered.length > 1000 && '(performance optimized)'}
                 </div>
               </CardTitle>
             </CardHeader>
@@ -570,7 +590,7 @@ const WhatsAppZipViewer: React.FC = () => {
                   </div>
                 ) : (
                   <div className="p-6">
-                    {filtered.slice(0, visibleCount).map((message, i) => {
+                    {displayMessages.map((message, i) => {
                       // 用 ownerName 判斷 isOwnMessage
                       const isOwnMessage = message.sender === ownerName;
                       const senderColorIndex = message.sender ? (message.sender.charCodeAt(0) % 8) : 0;
@@ -590,8 +610,13 @@ const WhatsAppZipViewer: React.FC = () => {
                           onClick={() => setVisibleCount(v => v + 100)}
                           className="border-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50 font-semibold px-8 py-3 rounded-xl shadow-lg"
                         >
-                          載入更多訊息
+                          載入更多訊息 ({Math.min(100, filtered.length - visibleCount)} more)
                         </Button>
+                      </div>
+                    )}
+                    {filtered.length > 1000 && (
+                      <div className="text-center text-gray-600 text-sm mt-4">
+                        💡 Large chat detected - performance optimizations are active
                       </div>
                     )}
                   </div>
