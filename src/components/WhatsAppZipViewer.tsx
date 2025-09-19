@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import ChatMessage, { WhatsAppMessage } from "./ChatMessage";
 import { mediaLoader } from "@/utils/MediaLoader";
 import DateTimePicker from "./DateTimePicker";
-import { setDate } from "date-fns";
+
 
 function parseWhatsAppText(text: string): WhatsAppMessage[] {
   // 更健壯的逐行解析：
@@ -209,32 +209,7 @@ function mapMediaToMessages(messages: WhatsAppMessage[]): WhatsAppMessage[] {
   });
 }
 
-// Simple DatePicker component
-const DatePicker: React.FC<{
-  id?: string;
-  value?: Date;
-  onChange?: (date: Date | undefined) => void;
-  placeholder?: string;
-}> = ({ id, value, onChange, placeholder }) => {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const dateValue = e.target.value;
-    if (dateValue) {
-      onChange?.(new Date(dateValue));
-    } else {
-      onChange?.(undefined);
-    }
-  };
 
-  return (
-    <Input
-      id={id}
-      type="date"
-      value={value ? value.toISOString().split('T')[0] : ''}
-      onChange={handleChange}
-      placeholder={placeholder}
-    />
-  );
-};
 
 const WhatsAppZipViewer: React.FC = () => {
   const [visibleCount, setVisibleCount] = useState<number>(100);
