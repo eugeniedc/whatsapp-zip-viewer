@@ -25,7 +25,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   isOwnMessage, 
   senderColorIndex 
 }) => {
-  // Generate vibrant colors for different senders
+  // Generate vibrant colors for different senders (used for avatars and names)
   const senderColors = [
     'from-blue-500 to-blue-600',
     'from-green-500 to-green-600', 
@@ -36,8 +36,20 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     'from-yellow-500 to-yellow-600',
     'from-teal-500 to-teal-600'
   ];
+
+  // Generate complementary but different colors for chat bubbles
+  const bubbleColors = [
+    'from-blue-100 to-blue-200',
+    'from-green-100 to-green-200', 
+    'from-purple-100 to-purple-200',
+    'from-pink-100 to-pink-200',
+    'from-indigo-100 to-indigo-200',
+    'from-red-100 to-red-200',
+    'from-yellow-100 to-yellow-200',
+    'from-teal-100 to-teal-200'
+  ];
   
-  const bubbleColor = isOwnMessage ? 'from-emerald-500 to-emerald-600' : senderColors[senderColorIndex];
+  const bubbleColor = isOwnMessage ? 'from-emerald-500 to-emerald-600' : bubbleColors[senderColorIndex];
   
   return (
     <div
@@ -77,11 +89,11 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         )}
         {/* Message content */}
         <div className={cn(
-          "relative px-6 py-4 rounded-2xl shadow-xl bg-gradient-to-r text-white backdrop-blur-sm border border-white/20",
+          "relative px-6 py-4 rounded-2xl shadow-xl bg-gradient-to-r backdrop-blur-sm border",
           bubbleColor,
           isOwnMessage 
-            ? "rounded-br-md" 
-            : "rounded-bl-md"
+            ? "text-white border-white/20 rounded-br-md" 
+            : "text-gray-800 border-gray-200 rounded-bl-md"
         )}>
           {/* Media content */}
           {message.mediaFiles && message.mediaFiles.length > 0 && (
@@ -94,14 +106,20 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                 />
               ))}
               {message.mediaFiles.length > 3 && (
-                <div className="text-xs text-white/70 mt-2">（僅顯示前 3 個媒體，剩餘 {message.mediaFiles.length - 3} 個未顯示）</div>
+                <div className={cn(
+                  "text-xs mt-2",
+                  isOwnMessage ? "text-white/70" : "text-gray-600"
+                )}>（僅顯示前 3 個媒體，剩餘 {message.mediaFiles.length - 3} 個未顯示）</div>
               )}
             </div>
           )}
           
           {/* Text message */}
           {message.message && (
-            <p className="text-white leading-relaxed font-medium break-words">
+            <p className={cn(
+              "leading-relaxed font-medium break-words",
+              isOwnMessage ? "text-white" : "text-gray-800"
+            )}>
               {message.message}
             </p>
           )}
@@ -109,7 +127,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           {/* Timestamp and filename */}
           <div className={cn(
             "flex items-center gap-1 mt-3 text-xs font-medium",
-            "text-white/80"
+            isOwnMessage ? "text-white/80" : "text-gray-600"
           )}>
             <span>
               {message.datetime instanceof Date && !isNaN(message.datetime.getTime())
@@ -119,7 +137,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             {message.chatFileName && (
               <>
                 <span>•</span>
-                <span className="text-white/60">{message.chatFileName}</span>
+                <span className={cn(
+                  isOwnMessage ? "text-white/60" : "text-gray-500"
+                )}>{message.chatFileName}</span>
               </>
             )}
           </div>

@@ -15,7 +15,8 @@ import { cn } from "@/lib/utils";
 import ChatMessage, { WhatsAppMessage } from "./ChatMessage";
 import { mediaLoader } from "@/utils/MediaLoader";
 import DateTimePicker from "./DateTimePicker";
-import { setDate } from "date-fns";
+import { Badge } from "@/components/ui/badge";
+
 
 function parseWhatsAppText(text: string): WhatsAppMessage[] {
   // 更健壯的逐行解析：
@@ -209,32 +210,7 @@ function mapMediaToMessages(messages: WhatsAppMessage[]): WhatsAppMessage[] {
   });
 }
 
-// Simple DatePicker component
-const DatePicker: React.FC<{
-  id?: string;
-  value?: Date;
-  onChange?: (date: Date | undefined) => void;
-  placeholder?: string;
-}> = ({ id, value, onChange, placeholder }) => {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const dateValue = e.target.value;
-    if (dateValue) {
-      onChange?.(new Date(dateValue));
-    } else {
-      onChange?.(undefined);
-    }
-  };
 
-  return (
-    <Input
-      id={id}
-      type="date"
-      value={value ? value.toISOString().split('T')[0] : ''}
-      onChange={handleChange}
-      placeholder={placeholder}
-    />
-  );
-};
 
 const WhatsAppZipViewer: React.FC = () => {
   const [visibleCount, setVisibleCount] = useState<number>(100);
@@ -624,9 +600,9 @@ const WhatsAppZipViewer: React.FC = () => {
                       {filtered.length} of {messages.length} messages
                     </span>
                     {search && (
-                      <span className="text-purple-600 font-medium">
+                      <Badge variant="outline" className="text-purple-600 border-purple-300">
                         matching "{search}" ✨
-                      </span>
+                      </Badge>
                     )}
                   </div>
                   {(search || startDate || endDate) && (
@@ -638,7 +614,7 @@ const WhatsAppZipViewer: React.FC = () => {
                         setStartDate(undefined);
                         setEndDate(undefined);
                       }}
-                      className="border-2 border-purple-300 text-purple-600 hover:bg-purple-50 font-semibold"
+                      className="hover:bg-purple-50 border-purple-300 text-purple-600"
                     >
                       Clear Filters
                     </Button>
@@ -667,9 +643,9 @@ const WhatsAppZipViewer: React.FC = () => {
                   <MessageCircle className="h-6 w-6" />
                 </div>
                 💬 Chat Messages
-                <div className="ml-auto bg-white/20 px-3 py-1 rounded-full text-sm font-medium">
-                  {filtered.length} messages {filtered.length > 1000 && '(performance optimized)'}
-                </div>
+                <Badge variant="secondary" className="ml-auto bg-white/20 text-white border-white/20 hover:bg-white/30">
+                  {filtered.length} messages {filtered.length > 1000 && '(optimized)'}
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -700,9 +676,10 @@ const WhatsAppZipViewer: React.FC = () => {
                     {visibleCount < filtered.length && (
                       <div className="flex justify-center mt-6">
                         <Button
-                          variant="outline"
+                          variant="secondary"
+                          size="lg"
                           onClick={() => setVisibleCount(v => v + 100)}
-                          className="border-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50 font-semibold px-8 py-3 rounded-xl shadow-lg"
+                          className="shadow-lg hover:shadow-xl transition-shadow"
                         >
                           Load more messages ({Math.min(100, filtered.length - visibleCount)} more)
                         </Button>
