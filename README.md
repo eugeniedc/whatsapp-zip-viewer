@@ -11,7 +11,6 @@ A local viewer for WhatsApp chat exports (ZIP files).
 - **Search:** Instantly search messages and senders.
 - **Date Range:** Filter messages by date.
 - **Fast & Private:** All processing is local—no server needed.
-- **Pixel Owl Favicon:** Includes a custom pixel owl favicon for fun!
 
 ## Getting Started
 
