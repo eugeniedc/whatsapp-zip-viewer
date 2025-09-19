@@ -18,7 +18,7 @@ function NavigationMenu({
       data-slot="navigation-menu"
       data-viewport={viewport}
       className={cn(
-        "group/navigation-menu relative flex max-w-max flex-1 items-center justify-center bg-gradient-to-br from-purple-400 via-pink-400 to-blue-400 w-full px-4 py-2 shadow-lg",
+        "group/navigation-menu relative flex w-full items-center justify-start bg-gradient-to-br from-purple-400 via-pink-400 to-blue-400 px-6 py-3 shadow-lg",
         className
       )}
       {...props}
@@ -37,7 +37,7 @@ function NavigationMenuList({
     <NavigationMenuPrimitive.List
       data-slot="navigation-menu-list"
       className={cn(
-        "group flex flex-1 list-none items-center justify-center gap-1",
+        "group flex list-none items-center justify-start gap-4",
         className
       )}
       {...props}
@@ -59,7 +59,7 @@ function NavigationMenuItem({
 }
 
 const navigationMenuTriggerStyle = cva(
-  "group inline-flex h-9 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white hover:bg-white/20 hover:text-white focus:bg-white/20 focus:text-white disabled:pointer-events-none disabled:opacity-50 data-[state=open]:hover:bg-white/20 data-[state=open]:text-white data-[state=open]:focus:bg-white/20 data-[state=open]:bg-white/10 focus-visible:ring-ring/50 outline-none transition-[color,box-shadow,background] focus-visible:ring-[3px] focus-visible:outline-1"
+  "group inline-flex h-11 w-max items-center justify-center rounded-md px-6 py-3 text-sm font-semibold text-white hover:bg-white/20 hover:text-white focus:bg-white/20 focus:text-white disabled:pointer-events-none disabled:opacity-50 data-[state=open]:hover:bg-white/20 data-[state=open]:text-white data-[state=open]:focus:bg-white/20 data-[state=open]:bg-white/10 focus-visible:ring-white/50 outline-none transition-[color,box-shadow,background] focus-visible:ring-[3px] focus-visible:outline-1 shadow-sm"
 )
 
 function NavigationMenuTrigger({
