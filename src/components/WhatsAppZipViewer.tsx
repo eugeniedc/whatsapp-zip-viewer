@@ -16,77 +16,92 @@ import ChatMessage, { WhatsAppMessage } from "./ChatMessage";
 import { mediaLoader } from "@/utils/MediaLoader";
 
 function parseWhatsAppText(text: string): WhatsAppMessage[] {
-  // 支援兩種格式：
-  // 1. [dd/mm/yyyy hh:mm:ss] sender: message
-  // 2. dd/mm/yyyy, hh:mm - sender: message
-  const regexBracket = /^\[(\d{1,2}\/\d{1,2}\/\d{2,4}) (\d{1,2}:\d{2}:\d{2})\] ([^:]+): (.+)$/gm;
-  const regexDash = /^(\d{1,2}\/\d{1,2}\/\d{2,4}), (\d{1,2}:\d{2}) - ([^:]+): (.+)$/gm;
-  const messages: WhatsAppMessage[] = [];
-  // 先解析中括號格式
-  let matchBracket;
-  while ((matchBracket = regexBracket.exec(text)) !== null) {
-    const [_, date, time, sender, message] = matchBracket;
-    // date: dd/mm/yyyy, time: hh:mm:ss
-    const [d, m, yRaw] = date.split('/');
-    let y = yRaw;
-    if (y.length === 2) {
-      y = Number(y) < 50 ? '20' + y : '19' + y;
+  // 更健壯的逐行解析：
+  // - 允許行首存在零寬字符（例如 \u200E）或 BOM
+  // - 支援 [dd/mm/yyyy hh:mm(:ss)] sender: message
+  // - 支援 dd/mm/yyyy, hh:mm( AM/PM) - sender: message
+  // - 支援多行訊息（非時間戳開頭的行會附加到上一則）
+
+  const stripLTR = (s: string) => s.replace(/^[\u200E\u200F\uFEFF]+/, "");
+
+  // [d/m/yyyy hh:mm(:ss)] sender: message
+  const bracketRe = /^\[(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}:\d{2}(?::\d{2})?)\]\s+([^:]+):\s*(.*)$/;
+  // d/m/yyyy, hh:mm( AM/PM)? - sender: message  (允許 - 或 –)
+  const dashRe = /^(\d{1,2}\/\d{1,2}\/\d{2,4}),\s+(\d{1,2}:\d{2})(?:\s*(AM|PM))?\s*[-–]\s*([^:]+):\s*(.*)$/i;
+
+  const toFourDigitYear = (y: string) => (y.length === 2 ? (Number(y) < 50 ? 2000 + Number(y) : 1900 + Number(y)) : Number(y));
+
+  const parseDT = (dateStr: string, timeStr: string, ampm?: string) => {
+    const [d, m, yRaw] = dateStr.split('/');
+    const yyyy = toFourDigitYear(yRaw);
+    const parts = timeStr.split(':');
+    let hh = Number(parts[0]);
+    const mm = Number(parts[1]);
+    const ss = parts[2] ? Number(parts[2]) : 0;
+    if (ampm) {
+      hh = hh % 12;
+      if (/PM/i.test(ampm)) hh += 12;
     }
-    // 解析時間
-    const [hh, mm, ss] = time.split(':');
-    const dt = new Date(Date.UTC(
-      Number(y),
-      Number(m) - 1,
-      Number(d),
-      Number(hh),
-      Number(mm),
-      Number(ss)
-    ));
-    messages.push({
-      datetime: dt,
-      sender,
-      message,
-    });
-  }
-  // 再解析 dash 格式
-  let matchDash;
-  while ((matchDash = regexDash.exec(text)) !== null) {
-    const [_, date, time, sender, message] = matchDash;
-    // date: dd/mm/yyyy, time: hh:mm
-    const [d, m, yRaw] = date.split('/');
-    let y = yRaw;
-    if (y.length === 2) {
-      y = Number(y) < 50 ? '20' + y : '19' + y;
+    return new Date(yyyy, Number(m) - 1, Number(d), hh, mm, ss);
+  };
+
+  const result: WhatsAppMessage[] = [];
+  let current: WhatsAppMessage | null = null;
+
+  const lines = text.split(/\r?\n/);
+  for (let raw of lines) {
+    if (!raw) {
+      // 空行當作內容延伸
+      if (current) current.message += "\n";
+      continue;
     }
-    const [hh, mm] = time.split(':');
-    const dt = new Date(Date.UTC(
-      Number(y),
-      Number(m) - 1,
-      Number(d),
-      Number(hh),
-      Number(mm),
-      0
-    ));
-    messages.push({
-      datetime: dt,
-      sender,
-      message,
-    });
+    const line = stripLTR(raw);
+
+    let m = bracketRe.exec(line);
+    if (m) {
+      if (current) result.push(current);
+      const [, dateStr, timeStr, sender, msg] = m;
+      current = {
+        datetime: parseDT(dateStr, timeStr),
+        sender: sender.trim(),
+        message: stripLTR(msg),
+      };
+      continue;
+    }
+
+    m = dashRe.exec(line);
+    if (m) {
+      if (current) result.push(current);
+      const [, dateStr, timeStr, ampm, sender, msg] = m as unknown as [string, string, string, string | undefined, string, string];
+      current = {
+        datetime: parseDT(dateStr, timeStr, ampm),
+        sender: sender.trim(),
+        message: stripLTR(msg),
+      };
+      continue;
+    }
+
+    // 延伸上一則訊息
+    if (current) {
+      current.message += (current.message ? "\n" : "") + line;
+    }
   }
-  return messages;
+
+  if (current) result.push(current);
+  return result;
 }
 
 // Function to determine media type from filename
 function getMediaType(filename: string): 'image' | 'sticker' | 'document' | 'audio' | 'video' {
   const extension = filename.split('.').pop()?.toLowerCase();
   
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(extension || '')) {
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic', 'heif'].includes(extension || '')) {
     return 'image';
   }
   if (['webp', 'tgs'].includes(extension || '') && filename.includes('sticker')) {
     return 'sticker';
   }
-  if (['mp3', 'wav', 'ogg', 'm4a', 'aac'].includes(extension || '')) {
+  if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'opus'].includes(extension || '')) {
     return 'audio';
   }
   if (['mp4', 'mov', 'avi', 'webm', '3gp'].includes(extension || '')) {
@@ -97,17 +112,44 @@ function getMediaType(filename: string): 'image' | 'sticker' | 'document' | 'aud
 
 // Enhanced function to map media files to messages
 function mapMediaToMessages(messages: WhatsAppMessage[]): WhatsAppMessage[] {
+  const exts = ['jpg','jpeg','png','gif','webp','bmp','heic','heif','mp4','mov','avi','webm','3gp','mp3','wav','ogg','m4a','aac','opus','pdf','doc','docx','xls','xlsx','ppt','pptx'];
+  const extPattern = exts.join('|');
+  const looksLikeFilename = (s: string) => {
+    const lowered = s.trim();
+    return new RegExp(`\\.(${extPattern})$`, 'i').test(lowered) ||
+           /^(IMG|VID|PTT|AUD|DOC|STK)-\d{4}\d{2}\d{2}-WA\d+/i.test(lowered) ||
+           /WhatsApp\s+(Image|Video|Audio|Document)/i.test(lowered) ||
+           /PHOTO-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}/i.test(lowered);
+  };
   return messages.map(message => {
     // 支援 <添付ファイル: filename> 格式
     const mediaMatches = [];
-    // 1. 先抓 <添付ファイル: ...> 格式（注意空格）
-    const attachTagRegex = /<添付ファイル:\s*([^>]+)>/gi;
+    // 1. 泛化：抓 <任何語言描述: 檔名>，再用 looksLikeFilename 過濾
+    const attachTagRegex = /<[^>]*?:\s*([^>]+)>/gi;
     let tagMatch;
     while ((tagMatch = attachTagRegex.exec(message.message)) !== null) {
-      mediaMatches.push(tagMatch[1].trim());
+      const candidate = tagMatch[1].trim();
+      if (looksLikeFilename(candidate)) mediaMatches.push(candidate);
+    }
+    // 1b. 沒有使用尖括號時，支援常見語系標籤
+    //  - 繁中：附件、附檔、檔案
+    //  - 英文：attached file, file attached, attachment:
+    const langPhrases = [
+      /附件[:：]?\s*([^\n]+)/i,
+      /附檔[:：]?\s*([^\n]+)/i,
+      /檔案[:：]?\s*([^\n]+)/i,
+      /attachment\s*[:：-]?\s*([^\n]+)/i,
+      /attached\s*file\s*[:：-]?\s*([^\n]+)/i,
+      /file\s*attached\s*[:：-]?\s*([^\n]+)/i
+    ];
+    for (const rx of langPhrases) {
+      const m = rx.exec(message.message);
+      if (m && looksLikeFilename(m[1])) mediaMatches.push(m[1].trim());
     }
     // 2. 再抓原本的檔名格式，包括長檔名
-    const fileNameRegex = /(\d{8}-PHOTO-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.jpg|IMG-\d+-WA\d+\.\w+|VID-\d+-WA\d+\.\w+|AUD-\d+-WA\d+\.\w+|STK-\d+-WA\d+\.\w+|[\w-]+\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|mp3|wav|ogg|pdf|doc))/gi;
+    const fileNameRegex = new RegExp(`(\\d{8}-PHOTO-\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}\\.(?:jpg|jpeg)|`+
+      `(?:IMG|VID|PTT|AUD|DOC|STK)-\\d+-WA\\d+\\.(?:${extPattern})|`+
+      `[\\\w-]+\\.(?:${extPattern}))`, 'gi');
     let fileMatch;
     while ((fileMatch = fileNameRegex.exec(message.message)) !== null) {
       mediaMatches.push(fileMatch[0]);
@@ -120,8 +162,10 @@ function mapMediaToMessages(messages: WhatsAppMessage[]): WhatsAppMessage[] {
       const seen = new Set<string>();
       
       mediaMatches.forEach(mediaRef => {
-        // Clean the filename - remove "(file attached)" part if present
-        const cleanRef = mediaRef.replace(/\s*\(file attached\).*/i, '').trim();
+        // Clean the filename - remove "(file attached)" or localized variants if present
+        const cleanRef = mediaRef
+          .replace(/\s*\((file attached|arquivo anexado|pi[eè]ce jointe|allegato|anlage|archivo adjunto|附件|ไฟล์แนบ|t[eê]p đính k[eè]m|berkas terlampir|dosya eklendi)\).*/i, '')
+          .trim();
         // 直接用檔名
         const justFilename = cleanRef.split('/').pop() || cleanRef;
         
@@ -194,6 +238,7 @@ const WhatsAppZipViewer: React.FC = () => {
   const [visibleCount, setVisibleCount] = useState<number>(100);
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [ownerName, setOwnerName] = useState<string>("");
+  const [ownerNameInput, setOwnerNameInput] = useState<string>("");
   const [search, setSearch] = useState<string>("");
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
@@ -232,13 +277,13 @@ const WhatsAppZipViewer: React.FC = () => {
     setIsUploading(true);
     setUploadProgress(0);
     setIsProcessingMessages(false);
-    let allMessages: WhatsAppMessage[] = [];
+  let allMessages: WhatsAppMessage[] = [];
     
     // 動態取得 owner name：優先從檔名，否則用第一則訊息 sender
-    let owner = "";
+  let owner = ownerNameInput.trim();
     
     // 嘗試從 ZIP 檔名取得 owner
-    if (file && file.name) {
+      if (!owner && file && file.name) {
       // 例如 WhatsApp Chat - Kelly Chan.zip 取 Kelly Chan
       const match = file.name.match(/WhatsApp Chat - (.+)\.zip$/i);
       if (match && match[1]) {
@@ -259,34 +304,57 @@ const WhatsAppZipViewer: React.FC = () => {
       
       // Second pass: Extract _chat.txt messages
       setIsProcessingMessages(true);
-      for (const filename of Object.keys(zip.files)) {
-        if (filename === "_chat.txt") {
+      // 嘗試尋找聊天文字檔（先找 _chat.txt，其次任何 .txt）
+      const allNames = Object.keys(zip.files);
+      const chatCandidate =
+        allNames.find(n => n.split('/').pop() === "_chat.txt") ||
+        allNames.find(n => /\.txt$/i.test(n));
+
+      for (const filename of allNames) {
+        if (chatCandidate && filename === chatCandidate) {
           const text = await zip.files[filename].async("string");
           const parsedMessages = parseWhatsAppText(text);
           allMessages = allMessages.concat(parsedMessages);
-          // 如果 owner 尚未取得，則用第一則訊息 sender
           if (!owner && parsedMessages.length > 0) {
             owner = parsedMessages[0].sender;
           }
-          // 將檔名資訊加入每則訊息
           allMessages = allMessages.map(msg => ({
             ...msg,
             chatFileName: filename
           }));
         }
         processed++;
-        setUploadProgress(Math.round((processed / total) * 90)); // 90% for text
+        setUploadProgress(Math.round((processed / total) * 90));
       }
       
       // Third pass: Map media files to messages (no eager loading)
       console.log(`Processing ${allMessages.length} messages with media index`);
       console.log('Available media files:', mediaLoader.getAvailableMedia().length);
-      console.log('Detected owner:', owner);
+      // Resolve final owner name
+      const senders = new Set(allMessages.map(m => m.sender));
+      let finalOwner = owner;
+      // 若有使用者輸入，且存在於聊天 senders 中，優先採用
+      if (finalOwner && !senders.has(finalOwner)) {
+        // 若使用者輸入不存在，先清掉，交由規則決定
+        finalOwner = "";
+      }
+      // 若仍無，嘗試 zip 檔名推斷（上面已賦值過）
+      if (!finalOwner && owner && senders.has(owner)) {
+        finalOwner = owner;
+      }
+      // 若仍無，選擇第一個 sender，且不等於 zip 推斷的名稱（如果有）
+      if (!finalOwner) {
+        const zipCandidate = (file && file.name && /WhatsApp Chat - (.+)\.zip$/i.exec(file.name)?.[1]?.trim()) || "";
+        const firstOther = allMessages.find(m => m.sender && m.sender !== zipCandidate)?.sender;
+        finalOwner = firstOther || Array.from(senders)[0] || "";
+      }
+
+      console.log('Detected owner:', finalOwner);
       const messagesWithMedia = mapMediaToMessages(allMessages);
       
       setMessages(messagesWithMedia);
       setFiltered(messagesWithMedia);
-      setOwnerName(owner);
+      setOwnerName(finalOwner);
       setUploadProgress(100);
       
       setTimeout(() => {
@@ -358,6 +426,21 @@ const WhatsAppZipViewer: React.FC = () => {
                 Select your WhatsApp chat export ZIP file and let the magic begin! 🚀
               </CardDescription>
             </CardHeader>
+                            {/* Owner name input */}
+                <div className="max-w-xl mx-auto text-left mb-6">
+                  <Label htmlFor="owner-name" className="text-gray-700 font-semibold mb-2 block">Owner name（選填）</Label>
+                  <Input
+                    id="owner-name"
+                    type="text"
+                    value={ownerNameInput}
+                    onChange={(e) => setOwnerNameInput(e.target.value)}
+                    placeholder="輸入擁有者姓名（若與聊天 sender 匹配則優先採用）"
+                    className="h-11"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    若不輸入或不匹配：將優先使用 ZIP 檔名推斷，其次選擇第一個與 ZIP 檔名不同的發言者。
+                  </p>
+                </div>
             <CardContent className="p-8">
               <div
                 className={cn(
@@ -368,6 +451,7 @@ const WhatsAppZipViewer: React.FC = () => {
                 )}
                 onClick={() => fileInputRef.current?.click()}
               >
+    
                 <div className="mb-6">
                   <div className="inline-flex p-4 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full shadow-lg">
                     <FileUp className="h-12 w-12 text-white" />
@@ -377,10 +461,9 @@ const WhatsAppZipViewer: React.FC = () => {
                   {messages.length > 0 ? "🎉 Chat loaded successfully!" : "Choose your WhatsApp export file"}
                 </h3>
                 <p className="text-gray-600 text-lg mb-6">
-                  {messages.length > 0 
-                    ? `${messages.length} messages loaded and ready to explore!` 
-                    : "Click here to select a .zip file containing your WhatsApp chat export"
-                  }
+                  {messages.length > 0
+                    ? `${messages.length} messages loaded and ready to explore!`
+                    : "Click here to select a .zip file containing your WhatsApp chat export"}
                 </p>
                 <input
                   ref={fileInputRef}
@@ -389,21 +472,31 @@ const WhatsAppZipViewer: React.FC = () => {
                   onChange={handleZipUpload}
                   className="hidden"
                 />
-                <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold px-8 py-3 rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105">
-                  {messages.length > 0 ? "Load Different File" : "Select File"}
-                </Button>
-                {isUploading && (
-                  <div className="mt-8">
+
+                {isUploading ? (
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-800">
+                      {messages.length > 0 ? `${messages.length} messages loaded` : 'Uploading...'}
+                    </h4>
+                    <p className="text-sm text-gray-600">Owner: {ownerName || 'Unknown'}</p>
                     <div className="w-full bg-gray-200 rounded-full h-6">
                       <div
                         className="bg-gradient-to-r from-emerald-500 to-teal-500 h-6 rounded-full transition-all duration-300"
                         style={{ width: `${uploadProgress}%` }}
-                      ></div>
+                      />
                     </div>
                     <div className="text-center text-emerald-700 font-semibold mt-2">
-                      {uploadProgress < 100 ? `uploading... ${uploadProgress}%` : "Done!"}
+                      {uploadProgress < 100 ? `uploading... ${uploadProgress}%` : 'Done!'}
                     </div>
                   </div>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold px-8 py-3 rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105"
+                  >
+                    Select ZIP file
+                  </Button>
                 )}
               </div>
             </CardContent>
